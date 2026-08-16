@@ -1,0 +1,19 @@
+# dependencies
+node_modules/
+
+# wrangler / miniflare local state
+.wrangler/
+worker/.wrangler/
+
+# build output
+dist/
+
+# local secrets (never commit)
+.dev.vars
+worker/.dev.vars
+.env
+*.local
+
+# logs & os
+*.log
+.DS_Store

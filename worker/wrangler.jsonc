@@ -1,0 +1,12 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "stock-widget",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-08-14",
+  "observability": { "enabled": true },
+  // Import bundled .ttf font files as raw ArrayBuffers (for resvg text rendering).
+  // .wasm files are bundled automatically by wrangler's built-in CompiledWasm rule.
+  "rules": [
+    { "type": "Data", "globs": ["**/*.ttf"], "fallthrough": true }
+  ]
+}

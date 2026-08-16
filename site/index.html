@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Stock Widget · Preview &amp; Customize</title>
+    <meta name="description" content="Preview and build the URL for a stock candlestick chart widget." />
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%93%88%3C/text%3E%3C/svg%3E" />
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <h1>📈 Stock Widget</h1>
+      <p class="tagline">Build a candlestick chart URL for your iOS widget.</p>
+    </header>
+
+    <main class="layout">
+      <!-- ---------- Controls ---------- -->
+      <section class="panel controls" aria-label="Settings">
+        <div class="field">
+          <label for="base">Worker URL</label>
+          <input id="base" type="url" spellcheck="false" placeholder="https://stock-widget.you.workers.dev" />
+          <p class="hint" id="baseHint"></p>
+        </div>
+
+        <div class="row">
+          <div class="field grow">
+            <label for="ticker">Ticker</label>
+            <input id="ticker" type="text" spellcheck="false" autocapitalize="characters" placeholder="AAPL" />
+          </div>
+          <div class="field">
+            <label for="interval">Interval</label>
+            <select id="interval">
+              <option value="1Min">1 min</option>
+              <option value="5Min">5 min</option>
+              <option value="15Min">15 min</option>
+              <option value="30Min">30 min</option>
+              <option value="1Hour">1 hour</option>
+              <option value="1Day" selected>1 day</option>
+              <option value="1Week">1 week</option>
+              <option value="1Month">1 month</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="row">
+          <div class="field grow">
+            <label for="size">Widget size</label>
+            <select id="size">
+              <option value="small">Small (507×507)</option>
+              <option value="medium" selected>Medium (1092×507)</option>
+              <option value="large">Large (1092×1146)</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="theme">Theme</label>
+            <select id="theme">
+              <option value="dark" selected>Dark</option>
+              <option value="light">Light</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="row">
+          <div class="field grow">
+            <label for="bars">Bars: <span id="barsVal">30</span></label>
+            <input id="bars" type="range" min="5" max="200" step="1" value="30" />
+          </div>
+          <div class="field">
+            <label for="feed">Data feed</label>
+            <select id="feed">
+              <option value="iex" selected>IEX (free)</option>
+              <option value="sip">SIP (paid)</option>
+            </select>
+          </div>
+        </div>
+
+        <fieldset class="creds">
+          <legend>Alpaca API credentials</legend>
+          <div class="field">
+            <label for="key">API Key ID</label>
+            <input id="key" type="text" spellcheck="false" autocomplete="off" placeholder="PK…" />
+          </div>
+          <div class="field">
+            <label for="secret">API Secret Key</label>
+            <div class="secret-wrap">
+              <input id="secret" type="password" spellcheck="false" autocomplete="off" placeholder="••••••••" />
+              <button type="button" id="toggleSecret" class="ghost" aria-label="Show/hide secret">👁</button>
+            </div>
+          </div>
+          <p class="warn">
+            ⚠️ Your secret is embedded in the exported URL in plaintext. Only paste it somewhere
+            you trust, and prefer a <strong>read-only</strong> Alpaca key.
+          </p>
+        </fieldset>
+      </section>
+
+      <!-- ---------- Preview ---------- -->
+      <section class="panel preview" aria-label="Preview">
+        <div class="preview-head">
+          <span>Live preview</span>
+          <button type="button" id="refresh" class="ghost">↻ Refresh</button>
+        </div>
+        <div class="stage">
+          <div class="frame" id="frame">
+            <img id="previewImg" alt="Chart preview" />
+            <div class="placeholder" id="placeholder">Fill in a ticker and API keys to preview</div>
+          </div>
+        </div>
+
+        <div class="field">
+          <label for="url">Widget URL <span class="sub">— paste this into your widget app</span></label>
+          <textarea id="url" rows="3" readonly spellcheck="false"></textarea>
+        </div>
+        <div class="actions">
+          <button type="button" id="copy" class="primary">Copy URL</button>
+          <span id="copied" class="copied" hidden>Copied ✓</span>
+        </div>
+
+        <details class="howto">
+          <summary>How to put this on your iOS Home Screen</summary>
+          <ol>
+            <li>Copy the Widget URL above.</li>
+            <li>Use a widget app that displays a remote image from a URL (e.g. <em>Scriptable</em>, <em>Widgy</em>, or a “photo from URL” widget).</li>
+            <li>Pick the matching widget size (small / medium / large) so the aspect ratio fits.</li>
+            <li>The image refreshes on the schedule your widget app allows.</li>
+          </ol>
+        </details>
+      </section>
+    </main>
+
+    <footer class="foot">
+      <span>Market data by <a href="https://alpaca.markets" target="_blank" rel="noopener">Alpaca</a>. Not affiliated. Not investment advice.</span>
+    </footer>
+
+    <script src="config.js"></script>
+    <script src="app.js"></script>
+  </body>
+</html>
