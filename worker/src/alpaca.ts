@@ -52,9 +52,41 @@ export function normalizeTimeframe(raw: string | undefined): string | null {
 
 export const VALID_FEEDS = ["iex", "sip"] as const;
 
+const DAY_MS = 86400000;
+const TRADING_MIN_PER_DAY = 390; // ~6.5h regular session
+
+/**
+ * Calendar lookback (as YYYY-MM-DD) wide enough to contain `limit` bars of the
+ * given timeframe, with a cushion for nights/weekends/holidays. `sort=desc` +
+ * `limit` then caps the response to the most recent N, so over-shooting is free.
+ */
+function lookbackStart(timeframe: string, limit: number): string {
+  const m = /^(\d{1,2})(Min|Hour|Day|Week|Month)$/.exec(timeframe);
+  const n = m ? parseInt(m[1], 10) : 1;
+  const unit = m ? m[2] : "Day";
+  let days: number;
+  switch (unit) {
+    case "Min":
+      days = Math.ceil((limit * n) / TRADING_MIN_PER_DAY) * 2 + 5;
+      break;
+    case "Hour":
+      days = Math.ceil((limit * n) / 6.5) * 2 + 5;
+      break;
+    case "Week":
+      days = limit * n * 7 + 10;
+      break;
+    case "Month":
+      days = limit * n * 31 + 31;
+      break;
+    default: // Day
+      days = Math.ceil(limit * n * 1.5) + 7;
+  }
+  return new Date(Date.now() - days * DAY_MS).toISOString().slice(0, 10);
+}
+
 /**
  * Fetch the most-recent `limit` OHLC bars for `ticker`, in chronological order.
- * Requests newest-first (sort=desc) then reverses — avoids computing a start date.
+ * Requests newest-first (sort=desc) over an explicit lookback window, then reverses.
  */
 export async function fetchBars(p: FetchBarsParams): Promise<Bar[]> {
   const url = new URL(DATA_URL);
@@ -63,6 +95,7 @@ export async function fetchBars(p: FetchBarsParams): Promise<Bar[]> {
   url.searchParams.set("limit", String(p.limit));
   url.searchParams.set("feed", p.feed);
   url.searchParams.set("sort", "desc");
+  url.searchParams.set("start", lookbackStart(p.timeframe, p.limit));
 
   let res: Response;
   try {
