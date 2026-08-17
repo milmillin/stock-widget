@@ -165,6 +165,32 @@
       </section>
     </main>
 
+    <section class="scriptable-wrap">
+      <div class="panel scriptable">
+        <h2>📲 Use in Scriptable (native widget)</h2>
+        <p>
+          Prefer a real widget over a photo-URL app? The free
+          <a href="https://scriptable.app" target="_blank" rel="noopener">Scriptable</a> app can render
+          this chart natively — with an in-app setup screen and a different ticker per widget.
+        </p>
+        <ol>
+          <li>Install <strong>Scriptable</strong> from the App Store.</li>
+          <li>
+            Add the script — <a id="rawScript" href="stock-widget.js" target="_blank" rel="noopener">open
+            <code>stock-widget.js</code></a>, copy it, and paste into a new Scriptable script. Or install via
+            <a href="https://scriptdu.de" target="_blank" rel="noopener">ScriptDude</a> using this source URL:
+            <span class="url-line"><code id="scriptUrl">…</code>
+            <button type="button" id="copyScriptUrl" class="ghost">Copy</button></span>
+          </li>
+          <li>
+            Run it once in Scriptable to set your Worker URL + Alpaca keys, then add a Scriptable widget to your
+            Home Screen and set its <em>Parameter</em> to a ticker (e.g. <code>TSLA</code>, or
+            <code>MSFT,15Min,60</code>).
+          </li>
+        </ol>
+      </div>
+    </section>
+
     <footer class="foot">
       <span>Market data by <a href="https://alpaca.markets" target="_blank" rel="noopener">Alpaca</a>. Not affiliated. Not investment advice.</span>
     </footer>

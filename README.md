@@ -174,10 +174,30 @@ Set the **Worker URL** field to `http://127.0.0.1:8787`.
 
 ## Put it on your iPhone
 
+### Option A — native Scriptable widget (recommended)
+
+A [Scriptable](https://scriptable.app) script (`site/stock-widget.js`, served by Pages at
+`https://<you>.github.io/<repo>/stock-widget.js`) renders the widget natively and adds an in-app
+setup screen.
+
+1. Install the free **Scriptable** app.
+2. Add the script — copy `stock-widget.js` into a new Scriptable script, or install via
+   [ScriptDude](https://scriptdu.de) with the source URL above (one-tap install + auto-update).
+3. Run it once in Scriptable → set your **Worker URL** + **Alpaca keys** (stored in the iOS
+   **Keychain**) → **Preview**.
+4. Add a Scriptable widget to the Home Screen; set its **Parameter** to pick the symbol per
+   widget — `TSLA`, or `MSFT,15Min,60`, or `{"ticker":"NVDA","interval":"1Week"}`.
+
+Credentials go straight to your Worker over HTTPS (never in a shared URL). Scriptable has no Web
+Crypto, so it uses the Worker's raw `key`/`secret` params rather than `enc`.
+
+### Option B — any photo-from-URL widget
+
 1. Open the preview site, configure the chart, **Copy URL**.
-2. In a widget app that supports a remote image URL (Scriptable, Widgy, "photo from URL", …),
-   paste the URL and choose the matching widget size.
-3. The image refreshes on whatever schedule the widget app allows.
+2. Paste it into a widget app that shows a remote image (Widgy, a "photo from URL" widget, …) and
+   pick the matching size.
+
+Either way, the refresh cadence is controlled by iOS.
 
 ---
 

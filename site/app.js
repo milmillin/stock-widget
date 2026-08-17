@@ -184,3 +184,21 @@ update();
   }
   await recomputeEnc(); // encrypts saved creds (if any) and refreshes the preview
 })();
+
+// ---- Scriptable section: show the absolute script URL + copy button ----
+(function () {
+  const el = document.getElementById("scriptUrl");
+  if (!el) return;
+  const url = new URL("stock-widget.js", location.href).href;
+  el.textContent = url;
+  const btn = document.getElementById("copyScriptUrl");
+  if (btn) {
+    btn.addEventListener("click", async () => {
+      try {
+        await navigator.clipboard.writeText(url);
+        btn.textContent = "Copied ✓";
+        setTimeout(() => (btn.textContent = "Copy"), 1500);
+      } catch (_) {}
+    });
+  }
+})();
