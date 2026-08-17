@@ -2,7 +2,6 @@
 
 const $ = (id) => document.getElementById(id);
 const els = {
-  base: $("base"), baseHint: $("baseHint"),
   ticker: $("ticker"), interval: $("interval"), size: $("size"),
   theme: $("theme"), bars: $("bars"), barsVal: $("barsVal"), feed: $("feed"),
   tz: $("tz"), hr24: $("hr24"),
@@ -57,7 +56,7 @@ async function recomputeEnc() {
 // ---- persistence ----
 function save() {
   const data = {};
-  for (const k of ["base", "ticker", "interval", "size", "theme", "bars", "feed", "tz", "key", "secret"]) {
+  for (const k of ["ticker", "interval", "size", "theme", "bars", "feed", "tz", "key", "secret"]) {
     data[k] = els[k].value;
   }
   data.hr24 = els.hr24.checked;
@@ -67,7 +66,6 @@ function save() {
 function load() {
   let saved = {};
   try { saved = JSON.parse(localStorage.getItem(STORE_KEY) || "{}"); } catch (_) {}
-  els.base.value = saved.base || window.WORKER_BASE_URL || "";
   if (saved.ticker) els.ticker.value = saved.ticker;
   for (const k of ["interval", "size", "theme", "bars", "feed", "tz", "key", "secret"]) {
     if (saved[k] != null && saved[k] !== "") els[k].value = saved[k];
@@ -83,7 +81,7 @@ function resolvedTz() {
 
 // ---- URL building ----
 function baseUrl() {
-  return (els.base.value || "").trim().replace(/\/+$/, "");
+  return (window.WORKER_BASE_URL || "").trim().replace(/\/+$/, "");
 }
 
 function buildUrl(cacheBust) {
@@ -132,18 +130,14 @@ function refreshPreview(cacheBust) {
 
 function update(opts) {
   els.barsVal.textContent = els.bars.value;
-  els.url.value = ready() ? buildUrl(false) : "Set Worker URL, ticker and API keys to generate the URL.";
-  const b = baseUrl();
-  els.baseHint.textContent = !b || b.includes("YOUR-SUBDOMAIN")
-    ? "Set this to your deployed Worker URL (…workers.dev)."
-    : "";
+  els.url.value = ready() ? buildUrl(false) : "Enter a ticker and your API keys to generate the URL.";
   save();
   clearTimeout(previewTimer);
   previewTimer = setTimeout(() => refreshPreview(opts && opts.cacheBust), 400);
 }
 
 // ---- wire up ----
-for (const k of ["base", "ticker", "interval", "size", "theme", "bars", "feed", "tz", "hr24"]) {
+for (const k of ["ticker", "interval", "size", "theme", "bars", "feed", "tz", "hr24"]) {
   els[k].addEventListener("input", () => update());
   els[k].addEventListener("change", () => update());
 }
