@@ -201,4 +201,23 @@ update();
       } catch (_) {}
     });
   }
+
+  // Copy the whole script (fetch it, then to clipboard).
+  const scriptBtn = document.getElementById("copyScript");
+  if (scriptBtn) {
+    scriptBtn.addEventListener("click", async () => {
+      const orig = scriptBtn.textContent;
+      scriptBtn.disabled = true;
+      try {
+        const res = await fetch("stock-widget.js", { cache: "no-store" });
+        if (!res.ok) throw new Error(String(res.status));
+        await navigator.clipboard.writeText(await res.text());
+        scriptBtn.textContent = "Copied ✓";
+      } catch (_) {
+        scriptBtn.textContent = "Copy failed";
+      }
+      scriptBtn.disabled = false;
+      setTimeout(() => (scriptBtn.textContent = orig), 1800);
+    });
+  }
 })();
