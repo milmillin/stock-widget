@@ -202,22 +202,34 @@ update();
     });
   }
 
-  // Copy the whole script (fetch it, then to clipboard).
+  // Copy the whole script. iOS Safari only allows a clipboard write that STARTS
+  // synchronously in the tap, so we can't await fetch() before writeText(). Use
+  // ClipboardItem with a promise (Safari resolves it within the gesture); fall back
+  // to fetch-then-writeText on browsers without ClipboardItem.
   const scriptBtn = document.getElementById("copyScript");
   if (scriptBtn) {
-    scriptBtn.addEventListener("click", async () => {
-      const orig = scriptBtn.textContent;
-      scriptBtn.disabled = true;
-      try {
-        const res = await fetch("stock-widget.js", { cache: "no-store" });
-        if (!res.ok) throw new Error(String(res.status));
-        await navigator.clipboard.writeText(await res.text());
-        scriptBtn.textContent = "Copied ✓";
-      } catch (_) {
-        scriptBtn.textContent = "Copy failed";
+    const orig = scriptBtn.textContent;
+    scriptBtn.addEventListener("click", () => {
+      const finish = (ok) => {
+        scriptBtn.textContent = ok ? "Copied ✓" : "Copy failed";
+        setTimeout(() => (scriptBtn.textContent = orig), 1800);
+      };
+      const textPromise = fetch("stock-widget.js", { cache: "no-store" }).then((r) => {
+        if (!r.ok) throw new Error(String(r.status));
+        return r.text();
+      });
+      if (window.ClipboardItem && navigator.clipboard && navigator.clipboard.write) {
+        const blob = textPromise.then((t) => new Blob([t], { type: "text/plain" }));
+        navigator.clipboard.write([new ClipboardItem({ "text/plain": blob })]).then(
+          () => finish(true),
+          () => finish(false),
+        );
+      } else {
+        textPromise.then((t) => navigator.clipboard.writeText(t)).then(
+          () => finish(true),
+          () => finish(false),
+        );
       }
-      scriptBtn.disabled = false;
-      setTimeout(() => (scriptBtn.textContent = orig), 1800);
     });
   }
 })();
