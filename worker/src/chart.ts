@@ -109,11 +109,30 @@ function text(s: string, o: TextOpts): string {
  * ticker + price + daily change + interval, candles filling the body, and a small
  * "last queried" time stamp.
  */
+// Reference width each size's STYLE is tuned for; used to scale the layout when the
+// caller requests exact (device-specific) pixel dimensions via w/h.
+const PRESET_WIDTH: Record<WidgetSize, number> = { small: 507, medium: 1092, large: 1092 };
+
 export function buildChartSvg(bars: Bar[], o: ChartOptions): string {
   const { width: W, height: H, ticker, interval } = o;
   const p = palette(o.theme);
-  const s = STYLES[o.size];
   const now = o.now ?? new Date();
+
+  // Scale the (absolute-px) style to the actual canvas so the chart stays
+  // proportional at any requested size. k = 1 for the preset dimensions.
+  const styleBase = STYLES[o.size];
+  const k = W / PRESET_WIDTH[o.size];
+  const s = {
+    padX: styleBase.padX * k,
+    padTop: styleBase.padTop * k,
+    padBottom: styleBase.padBottom * k,
+    fTitle: styleBase.fTitle * k,
+    fPrice: styleBase.fPrice * k,
+    fChange: styleBase.fChange * k,
+    fFoot: styleBase.fFoot * k,
+    gapFrac: styleBase.gapFrac,
+    wick: styleBase.wick * k,
+  };
 
   const plotLeft = s.padX;
   const plotRight = W - s.padX;

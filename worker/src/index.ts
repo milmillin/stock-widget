@@ -26,6 +26,7 @@ app.get("/", (c) =>
       "  ticker   required   e.g. AAPL\n" +
       "  interval 1Day       Alpaca timeframe (1Min..59Min,1Hour..23Hour,1Day,1Week,1Month..12Month)\n" +
       "  size     medium     small | medium | large\n" +
+      "  w, h     (size)     exact pixel dimensions; overrides size preset, keeps its style\n" +
       "  bars     90          number of candles (5-200)\n" +
       "  feed     iex         iex | sip\n" +
       "  theme    dark        dark | light\n" +
@@ -41,7 +42,12 @@ app.get("/", (c) =>
 
 app.get("/chart.png", async (c) => {
   const q = c.req.query();
-  const { size, dims } = resolveSize(q.size);
+  const { size, dims: presetDims } = resolveSize(q.size);
+  // Optional exact pixel dimensions (e.g. a device's real widget size) — keeps `size`
+  // for styling but renders 1:1 so the image isn't rescaled/blurred by the client.
+  const wq = clamp(parseInt(q.w ?? "", 10) || 0, 0, 2000);
+  const hq = clamp(parseInt(q.h ?? "", 10) || 0, 0, 2000);
+  const dims = wq >= 120 && hq >= 120 ? { width: wq, height: hq } : presetDims;
   const theme = q.theme === "light" ? "light" : "dark";
   const ticker = (q.ticker ?? "").trim().toUpperCase();
   const wantJson = q.format === "json";

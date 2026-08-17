@@ -17,6 +17,39 @@ const SIZES = ["small", "medium", "large"];
 const THEMES = ["dark", "light"];
 const FEEDS = ["iex", "sip"];
 
+// Widget dimensions in POINTS per device screen size (portrait "WxH"). Multiplied by
+// Device.screenScale() to get exact pixels so the chart renders 1:1 (no rescale/blur).
+// Values for newer Pro/Pro Max are best-effort; if a device isn't listed we fall back to
+// the size preset. [width, height].
+const WIDGET_POINTS = {
+  "440x956": { small: [174, 174], medium: [374, 174], large: [374, 391] }, // 16 Pro Max (approx)
+  "430x932": { small: [170, 170], medium: [364, 170], large: [364, 382] }, // 14/15 Pro Max, 15/16 Plus
+  "428x926": { small: [170, 170], medium: [364, 170], large: [364, 382] }, // 12/13 Pro Max, 14 Plus
+  "402x874": { small: [162, 162], medium: [349, 162], large: [349, 366] }, // 16 Pro (approx)
+  "393x852": { small: [158, 158], medium: [338, 158], large: [338, 354] }, // 14 Pro, 15, 15 Pro, 16
+  "390x844": { small: [158, 158], medium: [338, 158], large: [338, 354] }, // 12, 13, 14
+  "375x812": { small: [155, 155], medium: [329, 155], large: [329, 345] }, // X, XS, 11 Pro, mini
+  "414x896": { small: [169, 169], medium: [360, 169], large: [360, 376] }, // XR, 11, 11 Pro Max
+  "414x736": { small: [159, 159], medium: [348, 159], large: [348, 357] }, // Plus (6–8)
+  "375x667": { small: [148, 148], medium: [322, 148], large: [322, 324] }, // SE 2/3, 6/7/8
+  "320x568": { small: [141, 141], medium: [291, 141], large: [291, 299] }, // SE 1
+};
+
+// Exact widget pixel size for this device+family, or null to fall back to the preset.
+function widgetPixelSize(family) {
+  try {
+    const sz = Device.screenSize();
+    const scale = Device.screenScale();
+    const w = Math.round(Math.min(sz.width, sz.height));
+    const h = Math.round(Math.max(sz.width, sz.height));
+    const e = WIDGET_POINTS[`${w}x${h}`];
+    if (e && e[family]) return { w: Math.round(e[family][0] * scale), h: Math.round(e[family][1] * scale) };
+  } catch (_) {
+    /* Device API unavailable */
+  }
+  return null;
+}
+
 // ---------- storage ----------
 function deviceTz() {
   try {
@@ -59,7 +92,7 @@ function setCred(k, v) {
 }
 
 // ---------- url ----------
-function buildUrl(s, key, secret, ticker, size) {
+function buildUrl(s, key, secret, ticker, size, px) {
   const p = [];
   const add = (k, v) => p.push(`${k}=${encodeURIComponent(v)}`);
   add("ticker", String(ticker || s.ticker || "AAPL").toUpperCase());
@@ -70,6 +103,10 @@ function buildUrl(s, key, secret, ticker, size) {
   add("theme", s.theme || "dark");
   if (s.tz) add("tz", s.tz);
   if (s.hr24) add("hr24", "1");
+  if (px && px.w && px.h) {
+    add("w", px.w); // exact device pixels -> rendered 1:1, crisp
+    add("h", px.h);
+  }
   if (key) add("key", key);
   if (secret) add("secret", secret);
   add("_", String(Date.now())); // cache-buster so each widget refresh is fresh
@@ -126,7 +163,7 @@ async function buildWidget() {
     return textWidget("📈 Stock Widget", "Open the app to set the Worker URL and your Alpaca keys.", s.theme);
   }
 
-  const url = buildUrl(s, key, secret, s.ticker, size);
+  const url = buildUrl(s, key, secret, s.ticker, size, widgetPixelSize(size));
   try {
     const req = new Request(url);
     req.timeoutInterval = 20;
