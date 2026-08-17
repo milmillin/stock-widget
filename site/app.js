@@ -2,16 +2,89 @@
 
 const $ = (id) => document.getElementById(id);
 const els = {
-  ticker: $("ticker"), interval: $("interval"), size: $("size"),
+  ticker: $("ticker"), interval: $("interval"), device: $("device"), size: $("size"),
   theme: $("theme"), bars: $("bars"), barsVal: $("barsVal"), feed: $("feed"),
   tz: $("tz"), hr24: $("hr24"),
   key: $("key"), secret: $("secret"), toggleSecret: $("toggleSecret"),
-  widget: $("widgetSlot"), img: $("previewImg"), placeholder: $("placeholder"),
+  img: $("previewImg"), placeholder: $("placeholder"), dims: $("dims"),
   url: $("url"), copy: $("copy"), copied: $("copied"), refresh: $("refresh"),
 };
 
 const STORE_KEY = "stock-widget-settings";
-const ASPECT = { small: "1 / 1", medium: "1092 / 507", large: "1092 / 1146" };
+
+// Widget sizes in POINTS [w,h] keyed by device screen size (points, portrait "WxH").
+// Multiplied by the device scale to get exact pixels so the image renders 1:1.
+const WIDGET_POINTS = {
+  "440x956": { small: [170, 170], medium: [364, 170], large: [364, 382] },
+  "402x874": { small: [162, 162], medium: [344, 162], large: [344, 366] },
+  "430x932": { small: [170, 170], medium: [364, 170], large: [364, 382] },
+  "393x852": { small: [158, 158], medium: [338, 158], large: [338, 354] },
+  "428x926": { small: [170, 170], medium: [364, 170], large: [364, 382] },
+  "390x844": { small: [158, 158], medium: [338, 158], large: [338, 354] },
+  "375x812": { small: [155, 155], medium: [329, 155], large: [329, 345] },
+  "414x896": { small: [169, 169], medium: [360, 169], large: [360, 379] },
+  "414x736": { small: [159, 159], medium: [348, 157], large: [348, 357] },
+  "375x667": { small: [148, 148], medium: [321, 148], large: [321, 324] },
+  "320x568": { small: [141, 141], medium: [292, 141], large: [292, 311] },
+  "1024x1366": { small: [170, 170], medium: [378.5, 170], large: [378.5, 378.5] },
+  "834x1194": { small: [155, 155], medium: [342, 155], large: [342, 342] },
+  "820x1180": { small: [155, 155], medium: [342, 155], large: [342, 342] },
+  "810x1080": { small: [146, 146], medium: [320.5, 146], large: [320.5, 320.5] },
+  "768x1024": { small: [141, 141], medium: [305.5, 141], large: [305.5, 305.5] },
+};
+
+// Device dropdown options: { label, key (screen WxH points), scale }.
+const DEVICES = [
+  { label: "iPhone 16 Pro Max", key: "440x956", scale: 3 },
+  { label: "iPhone 16 Pro", key: "402x874", scale: 3 },
+  { label: "iPhone 16 Plus · 15 Plus · 15/14 Pro Max", key: "430x932", scale: 3 },
+  { label: "iPhone 16 · 15 · 15/14 Pro", key: "393x852", scale: 3 },
+  { label: "iPhone 14 Plus · 13/12 Pro Max", key: "428x926", scale: 3 },
+  { label: "iPhone 14 · 13 · 12 (& Pro)", key: "390x844", scale: 3 },
+  { label: "iPhone 13/12 mini · 11 Pro · XS · X", key: "375x812", scale: 3 },
+  { label: "iPhone 11 Pro Max · XS Max", key: "414x896", scale: 3 },
+  { label: "iPhone 11 · XR", key: "414x896", scale: 2 },
+  { label: "iPhone 8/7/6s Plus", key: "414x736", scale: 3 },
+  { label: "iPhone SE (2/3) · 8 · 7", key: "375x667", scale: 2 },
+  { label: "iPhone SE (1st gen)", key: "320x568", scale: 2 },
+  { label: 'iPad Pro 12.9" / 13"', key: "1024x1366", scale: 2 },
+  { label: 'iPad Pro 11" · Air 11"', key: "834x1194", scale: 2 },
+  { label: 'iPad Air 10.9" · iPad 10th', key: "820x1180", scale: 2 },
+  { label: 'iPad 10.2"', key: "810x1080", scale: 2 },
+  { label: 'iPad 9.7" · mini', key: "768x1024", scale: 2 },
+];
+const DEFAULT_DEVICE = "393x852@3";
+const CORNER_PT = 22; // iOS widget corner radius (approx), ~constant across sizes
+
+const deviceVal = (d) => `${d.key}@${d.scale}`;
+function populateDevices() {
+  els.device.innerHTML = DEVICES.map((d) => `<option value="${deviceVal(d)}">${d.label}</option>`).join("");
+}
+function currentDevice() {
+  return DEVICES.find((d) => deviceVal(d) === els.device.value) || DEVICES.find((d) => d.key === "393x852") || DEVICES[0];
+}
+function sizePoints() {
+  const d = currentDevice();
+  return (WIDGET_POINTS[d.key] || WIDGET_POINTS["393x852"])[els.size.value] || WIDGET_POINTS["393x852"].medium;
+}
+function widgetPixels() {
+  const d = currentDevice();
+  const pts = sizePoints();
+  return { w: Math.round(pts[0] * d.scale), h: Math.round(pts[1] * d.scale) };
+}
+// Match the browser's screen size (points) + devicePixelRatio to a device.
+function detectDeviceValue() {
+  try {
+    const w = Math.min(screen.width, screen.height);
+    const h = Math.max(screen.width, screen.height);
+    const key = `${w}x${h}`;
+    const dpr = Math.round(window.devicePixelRatio || 1);
+    const d = DEVICES.find((x) => x.key === key && x.scale === dpr) || DEVICES.find((x) => x.key === key);
+    return d ? deviceVal(d) : null;
+  } catch (_) {
+    return null;
+  }
+}
 
 // ---- credential encryption (RSA-OAEP with the server's public key) ----
 let PUBKEY = null; // imported CryptoKey, or null when no public key is configured
@@ -56,7 +129,7 @@ async function recomputeEnc() {
 // ---- persistence ----
 function save() {
   const data = {};
-  for (const k of ["ticker", "interval", "size", "theme", "bars", "feed", "tz", "key", "secret"]) {
+  for (const k of ["ticker", "interval", "device", "size", "theme", "bars", "feed", "tz", "key", "secret"]) {
     data[k] = els[k].value;
   }
   data.hr24 = els.hr24.checked;
@@ -67,10 +140,12 @@ function load() {
   let saved = {};
   try { saved = JSON.parse(localStorage.getItem(STORE_KEY) || "{}"); } catch (_) {}
   if (saved.ticker) els.ticker.value = saved.ticker;
-  for (const k of ["interval", "size", "theme", "bars", "feed", "tz", "key", "secret"]) {
+  for (const k of ["interval", "device", "size", "theme", "bars", "feed", "tz", "key", "secret"]) {
     if (saved[k] != null && saved[k] !== "") els[k].value = saved[k];
   }
   els.hr24.checked = !!saved.hr24;
+  // Auto-detect the device when none was saved (works when browsing on the phone).
+  if (!saved.device) els.device.value = detectDeviceValue() || DEFAULT_DEVICE;
 }
 
 // Resolve the timezone to send: "auto" -> the device's IANA zone.
@@ -94,6 +169,9 @@ function buildUrl(cacheBust) {
   p.set("theme", els.theme.value);
   p.set("tz", resolvedTz());
   if (els.hr24.checked) p.set("hr24", "1");
+  const px = widgetPixels(); // exact device pixels -> crisp 1:1
+  p.set("w", px.w);
+  p.set("h", px.h);
   if (PUBKEY) {
     // Encrypted creds — the raw secret never enters the URL.
     if (encBlob) p.set("enc", encBlob);
@@ -115,9 +193,21 @@ function ready() {
 // ---- rendering ----
 let previewTimer = null;
 function refreshPreview(cacheBust) {
-  const size = els.size.value || "medium";
-  els.widget.className = "widget " + size;
-  els.placeholder.style.aspectRatio = ASPECT[size] || ASPECT.medium;
+  const px = widgetPixels();
+  const pts = sizePoints();
+  // Circular corners that scale with the displayed size: horizontal % = CORNER/widthPt,
+  // vertical % = that × aspect (so both radii resolve to the same length).
+  const frac = CORNER_PT / pts[0];
+  const radius = `${(frac * 100).toFixed(2)}% / ${(frac * (px.w / px.h) * 100).toFixed(2)}%`;
+  // Display at POINT size (pre-@scale) — the widget's true on-phone size. The image is
+  // the full-res pixel PNG, so it stays crisp on Retina. Capped to the column on mobile.
+  els.img.style.width = pts[0] + "px";
+  els.img.style.borderRadius = radius;
+  els.placeholder.style.width = pts[0] + "px";
+  els.placeholder.style.aspectRatio = `${pts[0]} / ${pts[1]}`;
+  els.placeholder.style.borderRadius = radius;
+  if (els.dims) els.dims.textContent = `· ${px.w}×${px.h}`;
+
   if (!ready()) {
     els.img.classList.remove("show");
     els.placeholder.classList.remove("hide");
@@ -137,7 +227,7 @@ function update(opts) {
 }
 
 // ---- wire up ----
-for (const k of ["ticker", "interval", "size", "theme", "bars", "feed", "tz", "hr24"]) {
+for (const k of ["ticker", "interval", "device", "size", "theme", "bars", "feed", "tz", "hr24"]) {
   els[k].addEventListener("input", () => update());
   els[k].addEventListener("change", () => update());
 }
@@ -174,6 +264,7 @@ els.img.addEventListener("error", () => {
 });
 els.img.addEventListener("load", () => els.placeholder.classList.add("hide"));
 
+populateDevices();
 load();
 update();
 (async () => {
@@ -183,53 +274,4 @@ update();
     PUBKEY = null;
   }
   await recomputeEnc(); // encrypts saved creds (if any) and refreshes the preview
-})();
-
-// ---- Scriptable section: show the absolute script URL + copy button ----
-(function () {
-  const el = document.getElementById("scriptUrl");
-  if (!el) return;
-  const url = new URL("stock-widget.js", location.href).href;
-  el.textContent = url;
-  const btn = document.getElementById("copyScriptUrl");
-  if (btn) {
-    btn.addEventListener("click", async () => {
-      try {
-        await navigator.clipboard.writeText(url);
-        btn.textContent = "Copied ✓";
-        setTimeout(() => (btn.textContent = "Copy"), 1500);
-      } catch (_) {}
-    });
-  }
-
-  // Copy the whole script. iOS Safari only allows a clipboard write that STARTS
-  // synchronously in the tap, so we can't await fetch() before writeText(). Use
-  // ClipboardItem with a promise (Safari resolves it within the gesture); fall back
-  // to fetch-then-writeText on browsers without ClipboardItem.
-  const scriptBtn = document.getElementById("copyScript");
-  if (scriptBtn) {
-    const orig = scriptBtn.textContent;
-    scriptBtn.addEventListener("click", () => {
-      const finish = (ok) => {
-        scriptBtn.textContent = ok ? "Copied ✓" : "Copy failed";
-        setTimeout(() => (scriptBtn.textContent = orig), 1800);
-      };
-      const textPromise = fetch("stock-widget.js", { cache: "no-store" }).then((r) => {
-        if (!r.ok) throw new Error(String(r.status));
-        return r.text();
-      });
-      if (window.ClipboardItem && navigator.clipboard && navigator.clipboard.write) {
-        const blob = textPromise.then((t) => new Blob([t], { type: "text/plain" }));
-        navigator.clipboard.write([new ClipboardItem({ "text/plain": blob })]).then(
-          () => finish(true),
-          () => finish(false),
-        );
-      } else {
-        textPromise.then((t) => navigator.clipboard.writeText(t)).then(
-          () => finish(true),
-          () => finish(false),
-        );
-      }
-    });
-  }
 })();

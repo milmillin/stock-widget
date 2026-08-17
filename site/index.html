@@ -14,11 +14,11 @@
       <p class="tagline">Build a candlestick chart URL for your iOS widget.</p>
     </header>
 
-    <main class="layout">
+    <main class="wrap">
       <!-- ---------- Controls ---------- -->
       <section class="panel controls" aria-label="Settings">
-        <div class="row">
-          <div class="field grow">
+        <div class="fields">
+          <div class="field">
             <label for="ticker">Ticker</label>
             <input id="ticker" type="text" spellcheck="false" autocapitalize="characters" placeholder="AAPL" value="AAPL" />
           </div>
@@ -35,16 +35,21 @@
               <option value="1Month">1 month</option>
             </select>
           </div>
-        </div>
-
-        <div class="row">
-          <div class="field grow">
+          <div class="field">
+            <label for="device">Device <span class="sub">(auto-detected)</span></label>
+            <select id="device"></select>
+          </div>
+          <div class="field">
             <label for="size">Widget size</label>
             <select id="size">
-              <option value="small">Small (507×507)</option>
-              <option value="medium" selected>Medium (1092×507)</option>
-              <option value="large">Large (1092×1146)</option>
+              <option value="small">Small</option>
+              <option value="medium" selected>Medium</option>
+              <option value="large">Large</option>
             </select>
+          </div>
+          <div class="field">
+            <label for="bars">Bars: <span id="barsVal">90</span></label>
+            <input id="bars" type="range" min="5" max="200" step="1" value="90" />
           </div>
           <div class="field">
             <label for="theme">Theme</label>
@@ -53,13 +58,6 @@
               <option value="light">Light</option>
             </select>
           </div>
-        </div>
-
-        <div class="row">
-          <div class="field grow">
-            <label for="bars">Bars: <span id="barsVal">90</span></label>
-            <input id="bars" type="range" min="5" max="200" step="1" value="90" />
-          </div>
           <div class="field">
             <label for="feed">Data feed</label>
             <select id="feed">
@@ -67,11 +65,8 @@
               <option value="sip">SIP (paid)</option>
             </select>
           </div>
-        </div>
-
-        <div class="row">
-          <div class="field grow">
-            <label for="tz">Timezone <span class="sub">(for “last queried”)</span></label>
+          <div class="field">
+            <label for="tz">Timezone <span class="sub">(“last queried”)</span></label>
             <select id="tz">
               <option value="auto" selected>Auto (device)</option>
               <option value="UTC">UTC</option>
@@ -99,21 +94,23 @@
 
         <fieldset class="creds">
           <legend>Alpaca API credentials</legend>
-          <div class="field">
-            <label for="key">API Key ID</label>
-            <input id="key" type="text" spellcheck="false" autocomplete="off" placeholder="PK…" />
-          </div>
-          <div class="field">
-            <label for="secret">API Secret Key</label>
-            <div class="secret-wrap">
-              <input id="secret" type="password" spellcheck="false" autocomplete="off" placeholder="••••••••" />
-              <button type="button" id="toggleSecret" class="ghost" aria-label="Show/hide secret">👁</button>
+          <div class="creds-grid">
+            <div class="field">
+              <label for="key">API Key ID</label>
+              <input id="key" type="text" spellcheck="false" autocomplete="off" placeholder="PK…" />
+            </div>
+            <div class="field">
+              <label for="secret">API Secret Key</label>
+              <div class="secret-wrap">
+                <input id="secret" type="password" spellcheck="false" autocomplete="off" placeholder="••••••••" />
+                <button type="button" id="toggleSecret" class="ghost" aria-label="Show/hide secret">👁</button>
+              </div>
             </div>
           </div>
           <p class="warn">
             🔒 Your key &amp; secret are <strong>encrypted with the server's public key</strong>
-            before they go in the URL (<code>?enc=…</code>) — only the chart server can read them.
-            Still, treat the link as personal, and a <strong>paper</strong> Alpaca key is safest.
+            before they go in the URL (<code>?enc=…</code>) — only the chart server can read them. They're
+            also saved in this browser. Treat the link as personal, and a <strong>paper</strong> key is safest.
           </p>
         </fieldset>
       </section>
@@ -121,26 +118,13 @@
       <!-- ---------- Preview ---------- -->
       <section class="panel preview" aria-label="Preview">
         <div class="preview-head">
-          <span>Live preview</span>
+          <span>Live preview <span class="sub" id="dims"></span></span>
           <button type="button" id="refresh" class="ghost">↻ Refresh</button>
         </div>
         <div class="stage">
-          <div class="phone">
-            <div class="island"></div>
-            <div class="screen">
-              <div class="statusbar"></div>
-              <div class="home">
-                <div class="widget medium" id="widgetSlot">
-                  <img id="previewImg" alt="Chart preview" />
-                  <div class="placeholder" id="placeholder">Enter a ticker &amp; API keys to preview</div>
-                </div>
-                <div class="apps" aria-hidden="true">
-                  <span></span><span></span><span></span><span></span>
-                  <span></span><span></span><span></span><span></span>
-                </div>
-              </div>
-              <div class="home-indicator"></div>
-            </div>
+          <div class="frame" id="frame">
+            <img id="previewImg" alt="Chart preview" />
+            <div class="placeholder" id="placeholder">Enter a ticker &amp; API keys to preview</div>
           </div>
         </div>
 
@@ -157,36 +141,11 @@
           <summary>How to put this on your iOS Home Screen</summary>
           <ol>
             <li>Copy the Widget URL above.</li>
-            <li>Use a widget app that displays a remote image from a URL (e.g. <em>Scriptable</em>, <em>Widgy</em>, or a “photo from URL” widget).</li>
-            <li>Pick the matching widget size (small / medium / large) so the aspect ratio fits.</li>
+            <li>Use a widget app that displays a remote image from a URL (a “photo from URL” widget, Widgy, …).</li>
+            <li>Pick the matching widget size (small / medium / large).</li>
             <li>The image refreshes on the schedule your widget app allows.</li>
           </ol>
         </details>
-      </section>
-      <section class="panel scriptable">
-        <h2>📲 Use in Scriptable (native widget)</h2>
-        <p>
-          Prefer a real widget over a photo-URL app? The free
-          <a href="https://scriptable.app" target="_blank" rel="noopener">Scriptable</a> app can render
-          this chart natively — with an in-app setup screen and a different ticker per widget.
-        </p>
-        <ol>
-          <li>Install <strong>Scriptable</strong> from the App Store.</li>
-          <li>
-            Add the script — tap
-            <button type="button" id="copyScript" class="primary btn-sm">Copy script</button>
-            and paste it into a new Scriptable script
-            (<a id="rawScript" href="stock-widget.js" target="_blank" rel="noopener">or view it</a>). Or install
-            via <a href="https://scriptdu.de" target="_blank" rel="noopener">ScriptDude</a> with this source URL:
-            <span class="url-line"><code id="scriptUrl">…</code>
-            <button type="button" id="copyScriptUrl" class="ghost">Copy</button></span>
-          </li>
-          <li>
-            Run it once in Scriptable to set your Worker URL + Alpaca keys, then add a Scriptable widget to your
-            Home Screen and set its <em>Parameter</em> to a ticker (e.g. <code>TSLA</code>, or
-            <code>MSFT,15Min,60</code>).
-          </li>
-        </ol>
       </section>
     </main>
 
