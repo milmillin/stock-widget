@@ -58,14 +58,7 @@ const CORNER_PT = 22; // iOS widget corner radius (approx), ~constant across siz
 
 const deviceVal = (d) => `${d.key}@${d.scale}`;
 function populateDevices() {
-  if (!els.device) return;
-  els.device.textContent = "";
-  for (const d of DEVICES) {
-    const opt = document.createElement("option"); // DOM API — robust on iOS Safari
-    opt.value = deviceVal(d);
-    opt.textContent = d.label;
-    els.device.appendChild(opt);
-  }
+  els.device.innerHTML = DEVICES.map((d) => `<option value="${deviceVal(d)}">${d.label}</option>`).join("");
 }
 function currentDevice() {
   return DEVICES.find((d) => deviceVal(d) === els.device.value) || DEVICES.find((d) => d.key === "393x852") || DEVICES[0];
@@ -239,29 +232,24 @@ function update(opts) {
   previewTimer = setTimeout(() => refreshPreview(opts && opts.cacheBust), 400);
 }
 
-// ---- wire up (guarded so one missing element can't halt init) ----
-// Populate the device list first so it's there even if later wiring fails.
-populateDevices();
-
+// ---- wire up ----
 for (const k of ["ticker", "interval", "device", "size", "theme", "bars", "feed", "tz", "hr24", "hl"]) {
-  if (!els[k]) continue;
   els[k].addEventListener("input", () => update());
   els[k].addEventListener("change", () => update());
 }
 // key/secret changes re-encrypt (which then calls update)
 for (const k of ["key", "secret"]) {
-  if (!els[k]) continue;
   els[k].addEventListener("input", scheduleEnc);
   els[k].addEventListener("change", scheduleEnc);
 }
 
-els.toggleSecret?.addEventListener("click", () => {
+els.toggleSecret.addEventListener("click", () => {
   els.secret.type = els.secret.type === "password" ? "text" : "password";
 });
 
-els.refresh?.addEventListener("click", () => refreshPreview(true));
+els.refresh.addEventListener("click", () => refreshPreview(true));
 
-els.copy?.addEventListener("click", async () => {
+els.copy.addEventListener("click", async () => {
   if (!ready()) return;
   const text = buildUrl(false);
   try {
@@ -275,13 +263,14 @@ els.copy?.addEventListener("click", async () => {
   setTimeout(() => (els.copied.hidden = true), 1600);
 });
 
-els.img?.addEventListener("error", () => {
+els.img.addEventListener("error", () => {
   els.placeholder.textContent = "Couldn't load preview — check the Worker URL and API keys.";
   els.placeholder.classList.remove("hide");
   els.img.classList.remove("show");
 });
-els.img?.addEventListener("load", () => els.placeholder.classList.add("hide"));
+els.img.addEventListener("load", () => els.placeholder.classList.add("hide"));
 
+populateDevices();
 load();
 update();
 (async () => {
