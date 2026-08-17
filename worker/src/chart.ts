@@ -212,7 +212,7 @@ export function buildChartSvg(bars: Bar[], o: ChartOptions): string {
 
   parts.push(text(ticker, { x: plotLeft, y: yLineA, size: s.fTitle, fill: p.text, weight: 700 }));
   parts.push(
-    text(`${abbrevInterval(interval)} · ${fmtQueried(now, o.tz, o.hr24)} · ${W}×${H}`, {
+    text(`${abbrevInterval(interval)} · ${fmtQueried(now, o.tz, o.hr24)}`, {
       x: plotLeft,
       y: yLineB,
       size: s.fChange,
