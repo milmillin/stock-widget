@@ -14,7 +14,8 @@ export interface ChartOptions {
 }
 
 interface Palette {
-  bg: string;
+  bgFrom: string;
+  bgTo: string;
   text: string;
   subtext: string;
   up: string;
@@ -23,9 +24,9 @@ interface Palette {
 
 function palette(theme: "dark" | "light"): Palette {
   if (theme === "light") {
-    return { bg: "#ffffff", text: "#0d1117", subtext: "#6b7280", up: "#12a969", down: "#e5484d" };
+    return { bgFrom: "#ffffff", bgTo: "#eef1f5", text: "#0d1117", subtext: "#6b7280", up: "#12a969", down: "#e5484d" };
   }
-  return { bg: "#0d1117", text: "#e6edf3", subtext: "#8b949e", up: "#26a69a", down: "#ef5350" };
+  return { bgFrom: "#141b27", bgTo: "#0a0e14", text: "#e6edf3", subtext: "#8b949e", up: "#26a69a", down: "#ef5350" };
 }
 
 interface Style {
@@ -143,12 +144,16 @@ export function buildChartSvg(bars: Bar[], o: ChartOptions): string {
   const span = hi - lo;
   const yOf = (price: number) => plotTop + ((hi - price) / span) * plotH;
 
-  const cardR = Math.min(Math.round(Math.min(W, H) * 0.05), 36);
   const parts: string[] = [];
   parts.push(
     `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">`,
   );
-  parts.push(`<rect x="0" y="0" width="${W}" height="${H}" rx="${cardR}" fill="${p.bg}"/>`);
+  parts.push(
+    `<defs><linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">` +
+      `<stop offset="0" stop-color="${p.bgFrom}"/><stop offset="1" stop-color="${p.bgTo}"/>` +
+      `</linearGradient></defs>`,
+  );
+  parts.push(`<rect x="0" y="0" width="${W}" height="${H}" fill="url(#bg)"/>`);
 
   // ---- candles ----
   const n = bars.length;
@@ -220,12 +225,12 @@ export function buildMessageSvg(
 ): string {
   const p = palette(o.theme);
   const { width: W, height: H } = o;
-  const cardR = Math.min(Math.round(Math.min(W, H) * 0.05), 36);
   const titleSize = Math.round(Math.min(W, H) * 0.07);
   const msgSize = Math.round(Math.min(W, H) * 0.05);
   return (
     `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">` +
-    `<rect x="0" y="0" width="${W}" height="${H}" rx="${cardR}" fill="${p.bg}"/>` +
+    `<defs><linearGradient id="bg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${p.bgFrom}"/><stop offset="1" stop-color="${p.bgTo}"/></linearGradient></defs>` +
+    `<rect x="0" y="0" width="${W}" height="${H}" fill="url(#bg)"/>` +
     text(o.ticker || "—", {
       x: W / 2,
       y: H / 2 - msgSize * 0.4,
