@@ -45,8 +45,8 @@ app.get("/chart.png", async (c) => {
   const { size, dims: presetDims } = resolveSize(q.size);
   // Optional exact pixel dimensions (e.g. a device's real widget size) — keeps `size`
   // for styling but renders 1:1 so the image isn't rescaled/blurred by the client.
-  const wq = clamp(parseInt(q.w ?? "", 10) || 0, 0, 2000);
-  const hq = clamp(parseInt(q.h ?? "", 10) || 0, 0, 2000);
+  const wq = Math.max(0, parseInt(q.w ?? "", 10) || 0);
+  const hq = Math.max(0, parseInt(q.h ?? "", 10) || 0);
   const dims = wq >= 120 && hq >= 120 ? { width: wq, height: hq } : presetDims;
   const theme = q.theme === "light" ? "light" : "dark";
   const ticker = (q.ticker ?? "").trim().toUpperCase();
