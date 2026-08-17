@@ -17,23 +17,46 @@ const SIZES = ["small", "medium", "large"];
 const THEMES = ["dark", "light"];
 const FEEDS = ["iex", "sip"];
 
-// Widget dimensions in POINTS per device screen size (portrait "WxH"). Multiplied by
-// Device.screenScale() to get exact pixels so the chart renders 1:1 (no rescale/blur).
-// Values for newer Pro/Pro Max are best-effort; if a device isn't listed we fall back to
-// the size preset. [width, height].
+// Widget dimensions in POINTS per device screen size (portrait "WxH"), from Apple's HIG
+// cross-checked with the mzeryck Scriptable size table. Multiplied by Device.screenScale()
+// to get exact pixels so the chart renders 1:1 (no rescale/blur). [width, height].
+// iPhone values are confirmed except the two 16 Pro variants (⚠, single-source but consistent).
 const WIDGET_POINTS = {
-  "440x956": { small: [174, 174], medium: [374, 174], large: [374, 391] }, // 16 Pro Max (approx)
-  "430x932": { small: [170, 170], medium: [364, 170], large: [364, 382] }, // 14/15 Pro Max, 15/16 Plus
-  "428x926": { small: [170, 170], medium: [364, 170], large: [364, 382] }, // 12/13 Pro Max, 14 Plus
-  "402x874": { small: [162, 162], medium: [349, 162], large: [349, 366] }, // 16 Pro (approx)
-  "393x852": { small: [158, 158], medium: [338, 158], large: [338, 354] }, // 14 Pro, 15, 15 Pro, 16
-  "390x844": { small: [158, 158], medium: [338, 158], large: [338, 354] }, // 12, 13, 14
-  "375x812": { small: [155, 155], medium: [329, 155], large: [329, 345] }, // X, XS, 11 Pro, mini
-  "414x896": { small: [169, 169], medium: [360, 169], large: [360, 376] }, // XR, 11, 11 Pro Max
-  "414x736": { small: [159, 159], medium: [348, 159], large: [348, 357] }, // Plus (6–8)
-  "375x667": { small: [148, 148], medium: [322, 148], large: [322, 324] }, // SE 2/3, 6/7/8
-  "320x568": { small: [141, 141], medium: [291, 141], large: [291, 299] }, // SE 1
+  // iPhones (scale 3, except 11/XR and SE which are scale 2 — handled by screenScale())
+  "440x956": { small: [170, 170], medium: [364, 170], large: [364, 382] }, // 16 Pro Max
+  "402x874": { small: [162, 162], medium: [344, 162], large: [344, 366] }, // 16 Pro ⚠
+  "430x932": { small: [170, 170], medium: [364, 170], large: [364, 382] }, // 16 Plus, 15 Plus/Pro Max, 14 Pro Max
+  "393x852": { small: [158, 158], medium: [338, 158], large: [338, 354] }, // 16, 15/15 Pro, 14 Pro
+  "428x926": { small: [170, 170], medium: [364, 170], large: [364, 382] }, // 14 Plus, 13/12 Pro Max
+  "390x844": { small: [158, 158], medium: [338, 158], large: [338, 354] }, // 14, 13/13 Pro, 12/12 Pro
+  "375x812": { small: [155, 155], medium: [329, 155], large: [329, 345] }, // 13/12 mini, 11 Pro, XS, X
+  "414x896": { small: [169, 169], medium: [360, 169], large: [360, 379] }, // 11 Pro Max, XS Max, 11, XR
+  "414x736": { small: [159, 159], medium: [348, 157], large: [348, 357] }, // 8/7/6s Plus
+  "375x667": { small: [148, 148], medium: [321, 148], large: [321, 324] }, // SE 2/3, 8, 7, 6s
+  "320x568": { small: [141, 141], medium: [292, 141], large: [292, 311] }, // SE 1, 5s
+
+  // iPads (scale 2) — "Canvas" render sizes; also support extraLarge
+  "768x1024": { small: [141, 141], medium: [305.5, 141], large: [305.5, 305.5], extraLarge: [634.5, 305.5] }, // iPad 9.7"/10.2", mini
+  "810x1080": { small: [146, 146], medium: [320.5, 146], large: [320.5, 320.5], extraLarge: [669, 320.5] }, // iPad 10.2" (7–9th)
+  "820x1180": { small: [155, 155], medium: [342, 155], large: [342, 342], extraLarge: [715.5, 342] }, // iPad Air 10.9", iPad 10th
+  "834x1112": { small: [150, 150], medium: [327.5, 150], large: [327.5, 327.5], extraLarge: [682, 327.5] }, // iPad Pro/Air 10.5"
+  "834x1194": { small: [155, 155], medium: [342, 155], large: [342, 342], extraLarge: [715.5, 342] }, // iPad Pro 11", Air 11" M2
+  "954x1373": { small: [162, 162], medium: [350, 162], large: [350, 350], extraLarge: [726, 350] }, // iPad Pro 11" (More Space)
+  "970x1389": { small: [162, 162], medium: [350, 162], large: [350, 350], extraLarge: [726, 350] }, // iPad Pro 11" M4 (More Space)
+  "1024x1366": { small: [170, 170], medium: [378.5, 170], large: [378.5, 378.5], extraLarge: [795, 378.5] }, // iPad Pro 12.9"
+  "1032x1376": { small: [170, 170], medium: [378.5, 170], large: [378.5, 378.5], extraLarge: [795, 378.5] }, // iPad Pro 13" M4
+  "1192x1590": { small: [188, 188], medium: [412, 188], large: [412, 412], extraLarge: [860, 412] }, // iPad Pro 12.9"/13" (More Space)
 };
+
+// Rough fallback so a device not in the table still renders sensibly.
+function estimateWidgetPoints(w, h, family) {
+  const small = Math.round(w * 0.404);
+  const mediumW = Math.round(w * 0.862);
+  if (family === "small") return [small, small];
+  if (family === "medium") return [mediumW, small];
+  if (family === "large") return [mediumW, Math.round(h * 0.42)];
+  return null; // extraLarge / accessory -> preset fallback
+}
 
 // Exact widget pixel size for this device+family, or null to fall back to the preset.
 function widgetPixelSize(family) {
@@ -43,7 +66,8 @@ function widgetPixelSize(family) {
     const w = Math.round(Math.min(sz.width, sz.height));
     const h = Math.round(Math.max(sz.width, sz.height));
     const e = WIDGET_POINTS[`${w}x${h}`];
-    if (e && e[family]) return { w: Math.round(e[family][0] * scale), h: Math.round(e[family][1] * scale) };
+    const pts = (e && e[family]) || estimateWidgetPoints(w, h, family);
+    if (pts) return { w: Math.round(pts[0] * scale), h: Math.round(pts[1] * scale) };
   } catch (_) {
     /* Device API unavailable */
   }
