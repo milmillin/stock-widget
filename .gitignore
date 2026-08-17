@@ -14,6 +14,9 @@ worker/.dev.vars
 .env
 *.local
 
+# generated from .env by scripts/build-config.mjs (built locally + in CI)
+site/config.js
+
 # logs & os
 *.log
 .DS_Store

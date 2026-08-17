@@ -3,8 +3,12 @@ import { resolveSize } from "./sizes";
 import { fetchBars, normalizeTimeframe, AlpacaError, VALID_FEEDS } from "./alpaca";
 import { buildChartSvg, buildMessageSvg } from "./chart";
 import { svgToPng } from "./render";
+import { decryptCreds } from "./crypto";
 
 interface Env {
+  // RSA-OAEP private key (PKCS8 base64) that decrypts the `enc` credential blob.
+  // Set locally in .dev.vars and in prod via `wrangler secret put PRIVATE_KEY`.
+  PRIVATE_KEY?: string;
   // Optional server-side fallback creds. If set, callers can omit key/secret
   // from the URL (`wrangler secret put ALPACA_KEY_ID` / `ALPACA_SECRET`).
   ALPACA_KEY_ID?: string;
@@ -27,8 +31,10 @@ app.get("/", (c) =>
       "  theme    dark        dark | light\n" +
       "  tz       UTC         IANA timezone for the 'last queried' time, e.g. America/New_York\n" +
       "  hr24     0           1 = 24-hour clock (also accepts 24hr param)\n" +
-      "  key      required*   Alpaca API Key ID    (*or set ALPACA_KEY_ID secret)\n" +
-      "  secret   required*   Alpaca API Secret    (*or set ALPACA_SECRET secret)\n" +
+      "  enc      required*   RSA-OAEP encrypted {k,s} creds (preferred; from the site)\n" +
+      "  key      required*   Alpaca API Key ID    (raw alternative to enc)\n" +
+      "  secret   required*   Alpaca API Secret    (raw alternative to enc)\n" +
+      "             (*provide enc, OR key+secret, OR set ALPACA_KEY_ID/ALPACA_SECRET secrets)\n" +
       "  format   png         png | json (json returns raw bars for debugging)\n",
   ),
 );
@@ -68,8 +74,21 @@ app.get("/chart.png", async (c) => {
   const tz = q.tz || undefined;
   const hr24 = ["1", "true", "yes", "24"].includes((q.hr24 ?? q["24hr"] ?? "").toLowerCase());
 
-  const keyId = q.key ?? c.env.ALPACA_KEY_ID ?? "";
-  const secretKey = q.secret ?? c.env.ALPACA_SECRET ?? "";
+  let keyId = q.key ?? c.env.ALPACA_KEY_ID ?? "";
+  let secretKey = q.secret ?? c.env.ALPACA_SECRET ?? "";
+  // Encrypted credentials (?enc=...) take precedence — decrypt with the private key.
+  if (q.enc) {
+    if (!c.env.PRIVATE_KEY) {
+      return wantJson ? c.json({ error: "Server missing PRIVATE_KEY" }, 500) : errorImage("Server key missing");
+    }
+    try {
+      const creds = await decryptCreds(q.enc, c.env.PRIVATE_KEY);
+      keyId = creds.key;
+      secretKey = creds.secret;
+    } catch {
+      return wantJson ? c.json({ error: "Could not decrypt credentials" }, 400) : errorImage("Bad encrypted key");
+    }
+  }
   if (!keyId || !secretKey) {
     return wantJson ? c.json({ error: "Missing Alpaca key/secret" }, 400) : errorImage("Missing API key");
   }

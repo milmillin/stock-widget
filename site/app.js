@@ -14,6 +14,46 @@ const els = {
 const STORE_KEY = "stock-widget-settings";
 const ASPECT = { small: "1 / 1", medium: "1092 / 507", large: "1092 / 1146" };
 
+// ---- credential encryption (RSA-OAEP with the server's public key) ----
+let PUBKEY = null; // imported CryptoKey, or null when no public key is configured
+let encBlob = "";  // cached ciphertext of the current key + secret
+
+function b64ToBytes(b64) {
+  const bin = atob(b64);
+  const out = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+  return out;
+}
+function bytesToB64url(bytes) {
+  let bin = "";
+  for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+  return btoa(bin).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+}
+async function importPublicKey(spkiB64) {
+  return crypto.subtle.importKey("spki", b64ToBytes(spkiB64), { name: "RSA-OAEP", hash: "SHA-256" }, false, ["encrypt"]);
+}
+async function encryptCreds(keyId, secret) {
+  const data = new TextEncoder().encode(JSON.stringify({ k: keyId, s: secret }));
+  const ct = await crypto.subtle.encrypt({ name: "RSA-OAEP" }, PUBKEY, data);
+  return bytesToB64url(new Uint8Array(ct));
+}
+
+let encTimer = null;
+function scheduleEnc() {
+  clearTimeout(encTimer);
+  encTimer = setTimeout(recomputeEnc, 250);
+}
+async function recomputeEnc() {
+  const keyId = els.key.value.trim();
+  const secret = els.secret.value.trim();
+  if (PUBKEY && keyId && secret) {
+    try { encBlob = await encryptCreds(keyId, secret); } catch (_) { encBlob = ""; }
+  } else {
+    encBlob = "";
+  }
+  update();
+}
+
 // ---- persistence ----
 function save() {
   const data = {};
@@ -56,18 +96,22 @@ function buildUrl(cacheBust) {
   p.set("theme", els.theme.value);
   p.set("tz", resolvedTz());
   if (els.hr24.checked) p.set("hr24", "1");
-  if (els.key.value.trim()) p.set("key", els.key.value.trim());
-  if (els.secret.value.trim()) p.set("secret", els.secret.value.trim());
+  if (PUBKEY) {
+    // Encrypted creds — the raw secret never enters the URL.
+    if (encBlob) p.set("enc", encBlob);
+  } else {
+    // No public key configured: fall back to raw creds.
+    if (els.key.value.trim()) p.set("key", els.key.value.trim());
+    if (els.secret.value.trim()) p.set("secret", els.secret.value.trim());
+  }
   if (cacheBust) p.set("_", String(Date.now()));
   return `${baseUrl()}/chart.png?${p.toString()}`;
 }
 
 function ready() {
   const b = baseUrl();
-  return (
-    b && !b.includes("YOUR-SUBDOMAIN") &&
-    els.ticker.value.trim() && els.key.value.trim() && els.secret.value.trim()
-  );
+  const hasCreds = PUBKEY ? !!encBlob : els.key.value.trim() && els.secret.value.trim();
+  return b && !b.includes("YOUR-SUBDOMAIN") && els.ticker.value.trim() && !!hasCreds;
 }
 
 // ---- rendering ----
@@ -99,9 +143,14 @@ function update(opts) {
 }
 
 // ---- wire up ----
-for (const k of ["base", "ticker", "interval", "size", "theme", "bars", "feed", "tz", "hr24", "key", "secret"]) {
+for (const k of ["base", "ticker", "interval", "size", "theme", "bars", "feed", "tz", "hr24"]) {
   els[k].addEventListener("input", () => update());
   els[k].addEventListener("change", () => update());
+}
+// key/secret changes re-encrypt (which then calls update)
+for (const k of ["key", "secret"]) {
+  els[k].addEventListener("input", scheduleEnc);
+  els[k].addEventListener("change", scheduleEnc);
 }
 
 els.toggleSecret.addEventListener("click", () => {
@@ -133,4 +182,11 @@ els.img.addEventListener("load", () => els.placeholder.classList.add("hide"));
 
 load();
 update();
-refreshPreview(false);
+(async () => {
+  try {
+    if (window.PUBLIC_KEY) PUBKEY = await importPublicKey(window.PUBLIC_KEY);
+  } catch (_) {
+    PUBKEY = null;
+  }
+  await recomputeEnc(); // encrypts saved creds (if any) and refreshes the preview
+})();
