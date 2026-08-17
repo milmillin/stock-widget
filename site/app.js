@@ -5,8 +5,9 @@ const els = {
   base: $("base"), baseHint: $("baseHint"),
   ticker: $("ticker"), interval: $("interval"), size: $("size"),
   theme: $("theme"), bars: $("bars"), barsVal: $("barsVal"), feed: $("feed"),
+  tz: $("tz"), hr24: $("hr24"),
   key: $("key"), secret: $("secret"), toggleSecret: $("toggleSecret"),
-  frame: $("frame"), img: $("previewImg"), placeholder: $("placeholder"),
+  widget: $("widgetSlot"), img: $("previewImg"), placeholder: $("placeholder"),
   url: $("url"), copy: $("copy"), copied: $("copied"), refresh: $("refresh"),
 };
 
@@ -16,9 +17,10 @@ const ASPECT = { small: "1 / 1", medium: "1092 / 507", large: "1092 / 1146" };
 // ---- persistence ----
 function save() {
   const data = {};
-  for (const k of ["base", "ticker", "interval", "size", "theme", "bars", "feed", "key", "secret"]) {
+  for (const k of ["base", "ticker", "interval", "size", "theme", "bars", "feed", "tz", "key", "secret"]) {
     data[k] = els[k].value;
   }
+  data.hr24 = els.hr24.checked;
   try { localStorage.setItem(STORE_KEY, JSON.stringify(data)); } catch (_) {}
 }
 
@@ -27,9 +29,16 @@ function load() {
   try { saved = JSON.parse(localStorage.getItem(STORE_KEY) || "{}"); } catch (_) {}
   els.base.value = saved.base || window.WORKER_BASE_URL || "";
   if (saved.ticker) els.ticker.value = saved.ticker;
-  for (const k of ["interval", "size", "theme", "bars", "feed", "key", "secret"]) {
+  for (const k of ["interval", "size", "theme", "bars", "feed", "tz", "key", "secret"]) {
     if (saved[k] != null && saved[k] !== "") els[k].value = saved[k];
   }
+  els.hr24.checked = !!saved.hr24;
+}
+
+// Resolve the timezone to send: "auto" -> the device's IANA zone.
+function resolvedTz() {
+  if (els.tz.value && els.tz.value !== "auto") return els.tz.value;
+  try { return Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC"; } catch (_) { return "UTC"; }
 }
 
 // ---- URL building ----
@@ -45,6 +54,8 @@ function buildUrl(cacheBust) {
   p.set("bars", els.bars.value);
   p.set("feed", els.feed.value);
   p.set("theme", els.theme.value);
+  p.set("tz", resolvedTz());
+  if (els.hr24.checked) p.set("hr24", "1");
   if (els.key.value.trim()) p.set("key", els.key.value.trim());
   if (els.secret.value.trim()) p.set("secret", els.secret.value.trim());
   if (cacheBust) p.set("_", String(Date.now()));
@@ -62,7 +73,9 @@ function ready() {
 // ---- rendering ----
 let previewTimer = null;
 function refreshPreview(cacheBust) {
-  els.frame.style.aspectRatio = ASPECT[els.size.value] || ASPECT.medium;
+  const size = els.size.value || "medium";
+  els.widget.className = "widget " + size;
+  els.placeholder.style.aspectRatio = ASPECT[size] || ASPECT.medium;
   if (!ready()) {
     els.img.classList.remove("show");
     els.placeholder.classList.remove("hide");
@@ -86,7 +99,7 @@ function update(opts) {
 }
 
 // ---- wire up ----
-for (const k of ["base", "ticker", "interval", "size", "theme", "bars", "feed", "key", "secret"]) {
+for (const k of ["base", "ticker", "interval", "size", "theme", "bars", "feed", "tz", "hr24", "key", "secret"]) {
   els[k].addEventListener("input", () => update());
   els[k].addEventListener("change", () => update());
 }

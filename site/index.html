@@ -75,6 +75,34 @@
           </div>
         </div>
 
+        <div class="row">
+          <div class="field grow">
+            <label for="tz">Timezone <span class="sub">(for “last queried”)</span></label>
+            <select id="tz">
+              <option value="auto" selected>Auto (device)</option>
+              <option value="UTC">UTC</option>
+              <option value="America/New_York">New York (ET)</option>
+              <option value="America/Chicago">Chicago (CT)</option>
+              <option value="America/Denver">Denver (MT)</option>
+              <option value="America/Los_Angeles">Los Angeles (PT)</option>
+              <option value="America/Sao_Paulo">São Paulo</option>
+              <option value="Europe/London">London</option>
+              <option value="Europe/Paris">Paris / Berlin</option>
+              <option value="Europe/Moscow">Moscow</option>
+              <option value="Asia/Dubai">Dubai</option>
+              <option value="Asia/Kolkata">Mumbai (IST)</option>
+              <option value="Asia/Singapore">Singapore</option>
+              <option value="Asia/Hong_Kong">Hong Kong</option>
+              <option value="Asia/Tokyo">Tokyo</option>
+              <option value="Australia/Sydney">Sydney</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="hr24">Clock</label>
+            <label class="check"><input type="checkbox" id="hr24" /> 24-hour</label>
+          </div>
+        </div>
+
         <fieldset class="creds">
           <legend>Alpaca API credentials</legend>
           <div class="field">
@@ -102,9 +130,22 @@
           <button type="button" id="refresh" class="ghost">↻ Refresh</button>
         </div>
         <div class="stage">
-          <div class="frame" id="frame">
-            <img id="previewImg" alt="Chart preview" />
-            <div class="placeholder" id="placeholder">Fill in a ticker and API keys to preview</div>
+          <div class="phone">
+            <div class="island"></div>
+            <div class="screen">
+              <div class="statusbar"></div>
+              <div class="home">
+                <div class="widget medium" id="widgetSlot">
+                  <img id="previewImg" alt="Chart preview" />
+                  <div class="placeholder" id="placeholder">Enter a ticker &amp; API keys to preview</div>
+                </div>
+                <div class="apps" aria-hidden="true">
+                  <span></span><span></span><span></span><span></span>
+                  <span></span><span></span><span></span><span></span>
+                </div>
+              </div>
+              <div class="home-indicator"></div>
+            </div>
           </div>
         </div>
 

@@ -89,6 +89,13 @@ input[type="range"] { width: 100%; accent-color: var(--accent); margin-top: 8px;
 .secret-wrap { display: flex; gap: 8px; }
 .secret-wrap input { flex: 1; }
 
+.check {
+  display: flex; align-items: center; gap: 8px;
+  font-weight: 400; color: var(--text); font-size: 14px;
+  padding: 10px 2px;
+}
+.check input { width: auto; accent-color: var(--accent); margin: 0; }
+
 .warn {
   margin: 10px 0 0;
   font-size: 12.5px;
@@ -106,34 +113,96 @@ input[type="range"] { width: 100%; accent-color: var(--accent); margin-top: 8px;
   font-size: 13px; color: var(--subtext); font-weight: 600; margin-bottom: 12px;
 }
 .stage {
-  display: flex; justify-content: center; align-items: center;
-  background: repeating-conic-gradient(#0f141b 0% 25%, #11161d 0% 50%) 50% / 24px 24px;
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  padding: 18px;
+  display: flex; justify-content: center; align-items: flex-start;
+  padding: 8px 0 16px;
   margin-bottom: 16px;
 }
-.frame {
+
+/* ----- iPhone mockup ----- */
+.phone {
   position: relative;
   width: 100%;
-  max-width: 380px;
-  aspect-ratio: 1092 / 507;
-  display: flex; align-items: center; justify-content: center;
+  max-width: 300px;
+  aspect-ratio: 402 / 874;           /* iPhone 16 Pro (402x874 pt) */
+  background: #0a0a0c;
+  border-radius: 48px;
+  padding: 11px;                      /* titanium bezel */
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.55), inset 0 0 0 2px #2a2e35;
 }
-.frame img {
+.island {
+  position: absolute;
+  top: 19px; left: 50%; transform: translateX(-50%);
+  width: 29%; height: 26px;          /* ~125x37 pt Dynamic Island (wide pill), scaled */
+  background: #000;
+  border-radius: 13px;
+  z-index: 3;
+}
+.screen {
+  position: relative;
   width: 100%; height: 100%;
-  object-fit: contain;
-  border-radius: 14px;
-  display: none;
+  border-radius: 38px;               /* ~55 pt display corner, scaled */
+  overflow: hidden;
+  display: flex; flex-direction: column;
+  background:
+    radial-gradient(130% 80% at 25% 0%, #46618f 0%, #294066 34%, #16233f 62%, #0b1225 100%);
 }
-.frame img.show { display: block; }
+.statusbar { flex: 0 0 38px; }   /* status bar band (~54 pt); content omitted */
+
+.home {
+  flex: 1 1 auto;
+  padding: 14px 16px 0;
+  display: flex; flex-direction: column; gap: 16px;
+}
+
+/* the widget tile — image drives its own height so it always fills the width */
+.widget {
+  align-self: flex-start;
+  width: 100%;
+  border-radius: 17px;
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.45);
+}
+.widget.small { width: 47%; }
+.widget img {
+  display: none;
+  width: 100%; height: auto;
+  border-radius: 17px;                /* iOS masks the widget to its corner radius */
+}
+.widget img.show { display: block; }
 .placeholder {
-  position: absolute; inset: 0;
+  aspect-ratio: 1092 / 507;           /* overridden per size in JS */
   display: flex; align-items: center; justify-content: center;
-  text-align: center; padding: 20px;
-  color: var(--subtext); font-size: 14px;
+  text-align: center; padding: 16px;
+  color: rgba(255, 255, 255, 0.85); font-size: 12.5px;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 17px;
+  backdrop-filter: blur(6px);
 }
 .placeholder.hide { display: none; }
+
+/* faux app-icon grid under the widget for home-screen context */
+.apps { display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px 16px; }
+.apps span {
+  aspect-ratio: 1;
+  border-radius: 24%;
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.3);
+  background: linear-gradient(145deg, #8a94a6, #5c6c84);
+}
+.apps span:nth-child(1) { background: linear-gradient(145deg, #ff8f6b, #ff5e7e); }
+.apps span:nth-child(2) { background: linear-gradient(145deg, #6ad1ff, #4a7bff); }
+.apps span:nth-child(3) { background: linear-gradient(145deg, #ffd76a, #ff9f43); }
+.apps span:nth-child(4) { background: linear-gradient(145deg, #8affc1, #34c98a); }
+.apps span:nth-child(5) { background: linear-gradient(145deg, #c79bff, #7b5cff); }
+.apps span:nth-child(6) { background: linear-gradient(145deg, #9fb3c8, #64798f); }
+.apps span:nth-child(7) { background: linear-gradient(145deg, #ff9bd0, #ff5ea8); }
+.apps span:nth-child(8) { background: linear-gradient(145deg, #7ee8fa, #4a9fe0); }
+
+.home-indicator {
+  position: absolute;
+  bottom: 9px; left: 50%; transform: translateX(-50%);
+  width: 33%; height: 5px; border-radius: 3px;
+  background: rgba(255, 255, 255, 0.85);
+}
 
 .actions { display: flex; align-items: center; gap: 12px; margin-top: 12px; }
 .copied { color: var(--up); font-size: 13px; font-weight: 600; }
