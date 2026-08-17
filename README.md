@@ -18,16 +18,30 @@ A push to `main` auto-deploys each part via GitHub Actions.
 ## How it works
 
 ```
-iOS widget app  ──GET /chart.png?…──►  Cloudflare Worker  ──►  Alpaca market data API
-                                          │  build SVG (candles)
-                                          │  resvg-wasm → PNG
-                     ◄──── image/png ─────┘
+ preview site ──encrypt {key,secret} with PUBLIC_KEY──►  ?enc=… in the URL
+                                                              │
+ iOS widget app ──GET /chart.png?ticker=…&enc=…──►  Cloudflare Worker
+                                                       │  decrypt enc with PRIVATE_KEY
+                                                       │  fetch OHLC from Alpaca
+                                                       │  build SVG candles → resvg-wasm → PNG
+                                  ◄──────── image/png ─┘
 ```
 
-- Framework: **Hono**. Chart is hand-built **SVG** (`<rect>` bodies + `<line>` wicks) and
-  rasterized with **`@cf-wasm/resvg`** (WASM, runs in the Workers runtime).
-- Text uses a bundled, subset **Liberation Sans** (~9 KB per weight). Total Worker bundle
-  ≈ 0.95 MB gzipped.
+- Framework: **Hono**. The chart is hand-built **SVG** (`<rect>` bodies + `<line>` wicks) and
+  rasterized with **`@cf-wasm/resvg`** (WASM, runs in the Workers runtime). Text uses a bundled,
+  subset **Liberation Sans**. Total Worker bundle ≈ 0.95 MB gzipped.
+- Your Alpaca key/secret are **encrypted** (RSA-OAEP) with a public key before they go in the
+  URL; only the Worker (with the private key) can read them — see [Keys & config](#keys--config).
+
+### The chart
+
+A minimalist quote card — no axes, gridlines, or price/date labels:
+
+- **Header:** ticker + last price; below that, the abbreviated interval (`1D`, `15m`, `1H`) and
+  the "last queried" time on the left, and the **daily change** (last close vs previous close,
+  the standard convention) on the right, colored green/red.
+- **Body:** candlesticks filling the width, on a subtle gradient background.
+- Rendered at iOS **@3x**; corners are square (iOS masks the widget to its own radius).
 
 ---
 
@@ -43,47 +57,71 @@ GET {WORKER_URL}/chart.png
 | `interval` | | `1Day` | Alpaca timeframe: `1Min`–`59Min`, `1Hour`–`23Hour`, `1Day`, `1Week`, `1Month`–`12Month` |
 | `size` | | `medium` | `small` (507×507), `medium` (1092×507), `large` (1092×1146) — iOS @3x |
 | `bars` | | `30` | number of candles, clamped 5–200 |
-| `feed` | | `iex` | `iex` (free) or `sip` (paid Alpaca plan) |
+| `feed` | | `iex` | `iex` (free) or `sip` (paid Alpaca plan) — data source (not shown on the chart) |
 | `theme` | | `dark` | `dark` or `light` |
-| `key` | ✅* | — | Alpaca **API Key ID** |
-| `secret` | ✅* | — | Alpaca **API Secret Key** |
+| `tz` | | `UTC` | IANA timezone for the "last queried" time, e.g. `America/New_York` |
+| `hr24` | | `0` | `1` = 24-hour clock (also accepts `24hr`) |
+| `enc` | ✅* | — | RSA-OAEP-encrypted `{k,s}` credentials — what the preview site sends |
+| `key` | ✅* | — | Alpaca **API Key ID** (raw alternative to `enc`) |
+| `secret` | ✅* | — | Alpaca **API Secret** (raw alternative to `enc`) |
 | `format` | | `png` | `json` returns the raw bars (debugging) |
 
-\* Credentials are read from the URL. Alternatively set them as Worker secrets (below) and
-omit `key`/`secret` from the URL.
-
-**Example**
-
-```
-https://stock-widget.you.workers.dev/chart.png?ticker=AAPL&interval=1Day&size=medium&bars=30&feed=iex&theme=dark&key=PK...&secret=...
-```
+\* Provide `enc`, **or** `key`+`secret`, **or** set `ALPACA_KEY_ID`/`ALPACA_SECRET` as Worker secrets.
 
 Errors (bad ticker, invalid key, no data) render as a small message **image** (HTTP 200) so a
 widget shows the reason instead of a broken image. Add `&format=json` to see the real error.
 
-> ⚠️ **Security:** passing `secret` in the URL stores it in plaintext wherever that URL is
-> saved (widget app, browser history, server logs). Use a **read-only** Alpaca key, or switch
-> to Worker secrets (see below).
+---
+
+## Keys & config
+
+Your Alpaca key/secret never appear in plaintext in a URL. The preview site encrypts them with
+an **RSA-OAEP public key**; the Worker decrypts with the matching **private key**. If the URL
+leaks, the ciphertext is useless without the private key. (Using a **paper** Alpaca key is still
+safest — it can read market data but can't trade.)
+
+Generate a key pair (one-time, or to rotate):
+
+```bash
+node scripts/keygen.mjs
+```
+
+**`.env` (repo root) is the single source of truth.** `node scripts/build-config.mjs` compiles
+it into the runtime locations:
+
+| Location | Holds | Committed? |
+|----------|-------|-----------|
+| **`.env`** | `WORKER_BASE_URL`, `PUBLIC_KEY`, `PRIVATE_KEY` — source of truth | no (gitignored) |
+| **`site/config.js`** | `WORKER_BASE_URL`, `PUBLIC_KEY` (public) — generated from `.env` | no (generated) |
+| **`worker/.dev.vars`** | `PRIVATE_KEY` for local `wrangler dev` (+ optional Alpaca fallback) | no (gitignored) |
+| **Worker secrets** (Cloudflare) | `PRIVATE_KEY` in production | n/a |
+| **GitHub Actions vars/secrets** | `WORKER_BASE_URL`, `PUBLIC_KEY` for the Pages build | n/a |
+
+> ⚠️ The **private key must never reach GitHub Pages** — anything in the static site is public.
+> It lives only in `worker/.dev.vars` (local) and as a Cloudflare Worker secret (prod).
 
 ---
 
-## Credentials to provide
+## Credentials to provide (to deploy)
 
-### GitHub repository secrets
-`Settings → Secrets and variables → Actions → New repository secret`:
+**GitHub → Settings → Secrets and variables → Actions**
 
-| Secret | Where to get it |
-|--------|-----------------|
-| `CLOUDFLARE_API_TOKEN` | Cloudflare dashboard → **My Profile → API Tokens** → template **"Edit Cloudflare Workers"** |
-| `CLOUDFLARE_ACCOUNT_ID` | Cloudflare dashboard → **Workers & Pages** (right sidebar) |
+| Name | Kind | Value |
+|------|------|-------|
+| `CLOUDFLARE_API_TOKEN` | Secret | Cloudflare → My Profile → API Tokens → **"Edit Cloudflare Workers"** |
+| `CLOUDFLARE_ACCOUNT_ID` | Secret | Cloudflare → Workers & Pages (right sidebar) |
+| `WORKER_BASE_URL` | Variable | your `https://stock-widget.<sub>.workers.dev` (public) |
+| `PUBLIC_KEY` | Variable | the `PUBLIC_KEY` from your `.env` (public) |
 
-### GitHub Pages
-`Settings → Pages → Build and deployment → Source = **GitHub Actions**`.
+**GitHub → Settings → Pages:** Source = **GitHub Actions**.
 
-### Alpaca
-Create a free account at [alpaca.markets](https://alpaca.markets), generate an **API Key ID +
-Secret Key** (read-only/data is enough — the free **IEX** feed works). These are entered on the
-preview site / in the widget URL — they are **not** stored in CI.
+**Cloudflare** (Worker secret, not in git):
+```bash
+cd worker && npx wrangler secret put PRIVATE_KEY   # paste the value from worker/.dev.vars
+```
+
+**Alpaca:** create a free account at [alpaca.markets](https://alpaca.markets) and generate an
+**API Key ID + Secret Key**. A **paper** key is recommended; the free **IEX** feed works.
 
 ---
 
@@ -91,56 +129,46 @@ preview site / in the widget URL — they are **not** stored in CI.
 
 Push to `main`. Two workflows run:
 
-- **`deploy-worker.yml`** — on changes under `worker/**`, runs `wrangler deploy`.
-- **`deploy-pages.yml`** — on changes under `site/**`, publishes `site/` to GitHub Pages.
-
-After the first Worker deploy you'll get a URL like `https://stock-widget.<subdomain>.workers.dev`.
-Put it in **`site/config.js`** (`WORKER_BASE_URL`) so the preview page targets it by default.
+- **`deploy-worker.yml`** — on changes under `worker/**`, type-checks and runs `wrangler deploy`.
+- **`deploy-pages.yml`** — on changes under `site/**`, builds `site/config.js` from your GitHub
+  `WORKER_BASE_URL` + `PUBLIC_KEY`, then publishes `site/` to GitHub Pages.
 
 ---
 
 ## Local development
 
-### Worker
 Requires **Node 22+** (wrangler 4).
 
+**1. Generate keys** (writes `.env`, `site/config.js`, `worker/.dev.vars`):
+```bash
+node scripts/keygen.mjs
+```
+
+**2. (optional) Alpaca test creds** for local `curl` without encryption — add to `worker/.dev.vars`:
+```
+ALPACA_KEY_ID=PK...
+ALPACA_SECRET=...
+```
+
+**3. Worker:**
 ```bash
 cd worker
 npm install
 npm run dev          # http://127.0.0.1:8787
-npm run typecheck
 ```
-
-Try it:
-
 ```bash
-curl -o out.png "http://127.0.0.1:8787/chart.png?ticker=AAPL&size=medium&bars=30&feed=iex&key=YOUR_ID&secret=YOUR_SECRET"
+curl -o out.png "http://127.0.0.1:8787/chart.png?ticker=AAPL&size=medium&bars=30"   # uses .dev.vars creds
 ```
 
-### Preview site
-No build step — just serve the folder:
-
+**4. Preview site** (no build step):
 ```bash
 cd site
 python3 -m http.server 8000     # http://localhost:8000
 ```
+Set the **Worker URL** field to `http://127.0.0.1:8787`.
 
-Set the **Worker URL** field to `http://127.0.0.1:8787` to preview against your local worker.
-
----
-
-## Optional: hide Alpaca keys as Worker secrets
-
-If you'd rather not put credentials in the URL:
-
-```bash
-cd worker
-npx wrangler secret put ALPACA_KEY_ID
-npx wrangler secret put ALPACA_SECRET
-```
-
-The Worker falls back to these when `key`/`secret` are absent from the URL, so the widget URL
-becomes just `…/chart.png?ticker=AAPL&size=medium`.
+> After editing `.env`, run `node scripts/build-config.mjs` to regenerate `site/config.js`
+> (and re-sync `PRIVATE_KEY` into `worker/.dev.vars`).
 
 ---
 
