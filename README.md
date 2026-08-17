@@ -56,7 +56,7 @@ GET {WORKER_URL}/chart.png
 | `ticker` | ✅ | — | e.g. `AAPL`, `MSFT`, `BRK.B` |
 | `interval` | | `1Day` | Alpaca timeframe: `1Min`–`59Min`, `1Hour`–`23Hour`, `1Day`, `1Week`, `1Month`–`12Month` |
 | `size` | | `medium` | `small` (507×507), `medium` (1092×507), `large` (1092×1146) — iOS @3x |
-| `bars` | | `30` | number of candles, clamped 5–200 |
+| `bars` | | `90` | number of candles, clamped 5–200 |
 | `feed` | | `iex` | `iex` (free) or `sip` (paid Alpaca plan) — data source (not shown on the chart) |
 | `theme` | | `dark` | `dark` or `light` |
 | `tz` | | `UTC` | IANA timezone for the "last queried" time, e.g. `America/New_York` |

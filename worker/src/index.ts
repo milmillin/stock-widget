@@ -26,7 +26,7 @@ app.get("/", (c) =>
       "  ticker   required   e.g. AAPL\n" +
       "  interval 1Day       Alpaca timeframe (1Min..59Min,1Hour..23Hour,1Day,1Week,1Month..12Month)\n" +
       "  size     medium     small | medium | large\n" +
-      "  bars     30          number of candles (5-200)\n" +
+      "  bars     90          number of candles (5-200)\n" +
       "  feed     iex         iex | sip\n" +
       "  theme    dark        dark | light\n" +
       "  tz       UTC         IANA timezone for the 'last queried' time, e.g. America/New_York\n" +
@@ -70,7 +70,7 @@ app.get("/chart.png", async (c) => {
     return wantJson ? c.json({ error: "Invalid interval" }, 400) : errorImage("Invalid interval");
   }
   const feed = (VALID_FEEDS as readonly string[]).includes(q.feed ?? "") ? (q.feed as string) : "iex";
-  const bars = clamp(parseInt(q.bars ?? "30", 10) || 30, 5, 200);
+  const bars = clamp(parseInt(q.bars ?? "90", 10) || 90, 5, 200);
   const tz = q.tz || undefined;
   const hr24 = ["1", "true", "yes", "24"].includes((q.hr24 ?? q["24hr"] ?? "").toLowerCase());
 
