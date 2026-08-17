@@ -32,6 +32,7 @@ app.get("/", (c) =>
       "  theme    dark        dark | light\n" +
       "  tz       UTC         IANA timezone for the 'last queried' time, e.g. America/New_York\n" +
       "  hr24     0           1 = 24-hour clock (also accepts 24hr param)\n" +
+      "  hl       0           1 = newer-iOS rim highlight; hlr = corner radius in px\n" +
       "  enc      required*   RSA-OAEP encrypted {k,s} creds (preferred; from the site)\n" +
       "  key      required*   Alpaca API Key ID    (raw alternative to enc)\n" +
       "  secret   required*   Alpaca API Secret    (raw alternative to enc)\n" +
@@ -79,6 +80,8 @@ app.get("/chart.png", async (c) => {
   const bars = clamp(parseInt(q.bars ?? "90", 10) || 90, 5, 200);
   const tz = q.tz || undefined;
   const hr24 = ["1", "true", "yes", "24"].includes((q.hr24 ?? q["24hr"] ?? "").toLowerCase());
+  const highlight = ["1", "true", "yes"].includes((q.hl ?? "").toLowerCase());
+  const highlightRadius = clamp(parseInt(q.hlr ?? "", 10) || 0, 0, 400);
 
   let keyId = q.key ?? c.env.ALPACA_KEY_ID ?? "";
   let secretKey = q.secret ?? c.env.ALPACA_SECRET ?? "";
@@ -120,6 +123,8 @@ app.get("/chart.png", async (c) => {
       tz,
       hr24,
       now: new Date(),
+      highlight,
+      highlightRadius: highlightRadius || undefined,
     });
     return sendPng(svg);
   } catch (err) {

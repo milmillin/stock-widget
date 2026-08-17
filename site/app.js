@@ -4,7 +4,7 @@ const $ = (id) => document.getElementById(id);
 const els = {
   ticker: $("ticker"), interval: $("interval"), device: $("device"), size: $("size"),
   theme: $("theme"), bars: $("bars"), barsVal: $("barsVal"), feed: $("feed"),
-  tz: $("tz"), hr24: $("hr24"),
+  tz: $("tz"), hr24: $("hr24"), hl: $("hl"),
   key: $("key"), secret: $("secret"), toggleSecret: $("toggleSecret"),
   img: $("previewImg"), placeholder: $("placeholder"), dims: $("dims"),
   url: $("url"), copy: $("copy"), copied: $("copied"), refresh: $("refresh"),
@@ -133,6 +133,7 @@ function save() {
     data[k] = els[k].value;
   }
   data.hr24 = els.hr24.checked;
+  data.hl = els.hl.checked;
   try { localStorage.setItem(STORE_KEY, JSON.stringify(data)); } catch (_) {}
 }
 
@@ -144,6 +145,7 @@ function load() {
     if (saved[k] != null && saved[k] !== "") els[k].value = saved[k];
   }
   els.hr24.checked = !!saved.hr24;
+  els.hl.checked = !!saved.hl;
   // Auto-detect the device when none was saved (works when browsing on the phone).
   if (!saved.device) els.device.value = detectDeviceValue() || DEFAULT_DEVICE;
 }
@@ -172,6 +174,10 @@ function buildUrl(cacheBust) {
   const px = widgetPixels(); // exact device pixels -> crisp 1:1
   p.set("w", px.w);
   p.set("h", px.h);
+  if (els.hl.checked) {
+    p.set("hl", "1");
+    p.set("hlr", String(Math.round(CORNER_PT * currentDevice().scale))); // rim radius in px
+  }
   if (PUBKEY) {
     // Encrypted creds — the raw secret never enters the URL.
     if (encBlob) p.set("enc", encBlob);
@@ -227,7 +233,7 @@ function update(opts) {
 }
 
 // ---- wire up ----
-for (const k of ["ticker", "interval", "device", "size", "theme", "bars", "feed", "tz", "hr24"]) {
+for (const k of ["ticker", "interval", "device", "size", "theme", "bars", "feed", "tz", "hr24", "hl"]) {
   els[k].addEventListener("input", () => update());
   els[k].addEventListener("change", () => update());
 }

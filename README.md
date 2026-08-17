@@ -62,6 +62,7 @@ GET {WORKER_URL}/chart.png
 | `theme` | | `dark` | `dark` or `light` |
 | `tz` | | `UTC` | IANA timezone for the "last queried" time, e.g. `America/New_York` |
 | `hr24` | | `0` | `1` = 24-hour clock (also accepts `24hr`) |
+| `hl` | | `0` | `1` = newer-iOS specular rim highlight (bright top-left/bottom-right); `hlr` = corner radius in px |
 | `enc` | ✅* | — | RSA-OAEP-encrypted `{k,s}` credentials — what the preview site sends |
 | `key` | ✅* | — | Alpaca **API Key ID** (raw alternative to `enc`) |
 | `secret` | ✅* | — | Alpaca **API Secret** (raw alternative to `enc`) |

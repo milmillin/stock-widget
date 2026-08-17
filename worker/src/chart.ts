@@ -11,6 +11,8 @@ export interface ChartOptions {
   tz?: string; // IANA timezone for the "last queried" stamp (default UTC)
   hr24: boolean; // 24-hour clock for the stamp
   now?: Date; // when the data was queried (defaults to render time)
+  highlight?: boolean; // draw a newer-iOS specular rim highlight (bright TL + BR corners)
+  highlightRadius?: number; // corner radius (px) for the rim; matches the widget corner
 }
 
 interface Palette {
@@ -20,13 +22,21 @@ interface Palette {
   subtext: string;
   up: string;
   down: string;
+  hlBright: string; // specular rim: bright at top-left & bottom-right corners
+  hlDim: string;
 }
 
 function palette(theme: "dark" | "light"): Palette {
   if (theme === "light") {
-    return { bgFrom: "#ffffff", bgTo: "#eef1f5", text: "#0d1117", subtext: "#6b7280", up: "#12a969", down: "#e5484d" };
+    return {
+      bgFrom: "#ffffff", bgTo: "#eef1f5", text: "#0d1117", subtext: "#6b7280", up: "#12a969", down: "#e5484d",
+      hlBright: "rgba(120,120,128,0.3)", hlDim: "rgba(120,120,128,0.035)",
+    };
   }
-  return { bgFrom: "#141b27", bgTo: "#0a0e14", text: "#e6edf3", subtext: "#8b949e", up: "#26a69a", down: "#ef5350" };
+  return {
+    bgFrom: "#141b27", bgTo: "#0a0e14", text: "#e6edf3", subtext: "#8b949e", up: "#26a69a", down: "#ef5350",
+    hlBright: "rgba(255,255,255,0.3)", hlDim: "rgba(255,255,255,0.035)",
+  };
 }
 
 interface Style {
@@ -232,6 +242,24 @@ export function buildChartSvg(bars: Bar[], o: ChartOptions): string {
       weight: 700,
     }),
   );
+
+  // ---- newer-iOS rim highlight (optional) ----
+  if (o.highlight) {
+    const R = o.highlightRadius && o.highlightRadius > 0 ? o.highlightRadius : Math.round(Math.min(W, H) * 0.12);
+    const sw = Math.max(1.5, R / 22); // hairline, ~device scale in px
+    const inset = sw / 2;
+    const rx = Math.max(0, R - inset);
+    parts.push(
+      `<defs><linearGradient id="hl" x1="0.2" y1="0" x2="0.8" y2="1">` +
+        `<stop offset="0" stop-color="${p.hlBright}"/><stop offset="0.28" stop-color="${p.hlDim}"/>` +
+        `<stop offset="0.72" stop-color="${p.hlDim}"/><stop offset="1" stop-color="${p.hlBright}"/>` +
+        `</linearGradient></defs>`,
+    );
+    parts.push(
+      `<rect x="${r(inset)}" y="${r(inset)}" width="${r(W - sw)}" height="${r(H - sw)}" ` +
+        `rx="${r(rx)}" ry="${r(rx)}" fill="none" stroke="url(#hl)" stroke-width="${r(sw)}"/>`,
+    );
+  }
 
   parts.push(`</svg>`);
   return parts.join("");
