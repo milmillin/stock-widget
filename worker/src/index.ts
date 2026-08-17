@@ -25,6 +25,8 @@ app.get("/", (c) =>
       "  bars     30          number of candles (5-200)\n" +
       "  feed     iex         iex | sip\n" +
       "  theme    dark        dark | light\n" +
+      "  tz       UTC         IANA timezone for the 'last queried' time, e.g. America/New_York\n" +
+      "  hr24     0           1 = 24-hour clock (also accepts 24hr param)\n" +
       "  key      required*   Alpaca API Key ID    (*or set ALPACA_KEY_ID secret)\n" +
       "  secret   required*   Alpaca API Secret    (*or set ALPACA_SECRET secret)\n" +
       "  format   png         png | json (json returns raw bars for debugging)\n",
@@ -63,6 +65,8 @@ app.get("/chart.png", async (c) => {
   }
   const feed = (VALID_FEEDS as readonly string[]).includes(q.feed ?? "") ? (q.feed as string) : "iex";
   const bars = clamp(parseInt(q.bars ?? "30", 10) || 30, 5, 200);
+  const tz = q.tz || undefined;
+  const hr24 = ["1", "true", "yes", "24"].includes((q.hr24 ?? q["24hr"] ?? "").toLowerCase());
 
   const keyId = q.key ?? c.env.ALPACA_KEY_ID ?? "";
   const secretKey = q.secret ?? c.env.ALPACA_SECRET ?? "";
@@ -87,8 +91,10 @@ app.get("/chart.png", async (c) => {
       theme,
       ticker,
       interval: timeframe,
-      feed,
       size,
+      tz,
+      hr24,
+      now: new Date(),
     });
     return sendPng(svg);
   } catch (err) {
