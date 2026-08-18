@@ -112,6 +112,14 @@ input[type="range"] { width: 100%; accent-color: var(--accent); margin-top: 8px;
 .ind-row:last-child { margin-bottom: 0; }
 .ind-type { flex: 1 1 auto; min-width: 0; }
 .ind-param { width: 76px; flex: 0 0 auto; }
+.ind-color {
+  flex: 0 0 auto; width: 34px; height: 38px; padding: 3px;
+  background: var(--panel-2); border: 1px solid var(--border); border-radius: 8px;
+  cursor: pointer;
+}
+.ind-color::-webkit-color-swatch-wrapper { padding: 0; }
+.ind-color::-webkit-color-swatch { border: none; border-radius: 5px; }
+.ind-color::-moz-color-swatch { border: none; border-radius: 5px; }
 .ind-del { flex: 0 0 auto; padding: 6px 11px; font-size: 16px; line-height: 1; }
 
 .warn {

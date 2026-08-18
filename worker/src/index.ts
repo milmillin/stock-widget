@@ -35,6 +35,7 @@ app.get("/", (c) =>
       "  hr24     0           1 = 24-hour clock (also accepts 24hr param)\n" +
       "  hl       0           1 = newer-iOS rim highlight; hlr = corner radius in px\n" +
       "  ind      (none)      indicators, comma-sep: sma:20,ema:50,bb:20:2,vwap,rsi:14,macd:12:26:9,stoch:14:3:3,vol\n" +
+      "                       overlays/RSI take an optional trailing hex color, e.g. sma:20:f5a623\n" +
       "  enc      required*   RSA-OAEP encrypted {k,s} creds (preferred; from the site)\n" +
       "  key      required*   Alpaca API Key ID    (raw alternative to enc)\n" +
       "  secret   required*   Alpaca API Secret    (raw alternative to enc)\n" +

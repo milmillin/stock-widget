@@ -12,19 +12,28 @@ const els = {
 };
 
 // ---- indicators ----
+// `color` = the default swatch for single-line types (omitted for the multi-line /
+// semantic panes MACD/Stochastic/Volume, which keep their conventional colors).
 const IND_TYPES = {
-  sma: { label: "SMA", params: ["Period"], defaults: [20] },
-  ema: { label: "EMA", params: ["Period"], defaults: [20] },
-  wma: { label: "WMA", params: ["Period"], defaults: [20] },
-  bb: { label: "Bollinger", params: ["Period", "Mult"], defaults: [20, 2] },
-  vwap: { label: "VWAP", params: [], defaults: [] },
-  rsi: { label: "RSI", params: ["Period"], defaults: [14] },
+  sma: { label: "SMA", params: ["Period"], defaults: [20], color: "#f5a623" },
+  ema: { label: "EMA", params: ["Period"], defaults: [20], color: "#4aa3ff" },
+  wma: { label: "WMA", params: ["Period"], defaults: [20], color: "#c774f0" },
+  bb: { label: "Bollinger", params: ["Period", "Mult"], defaults: [20, 2], color: "#ff6ea9" },
+  vwap: { label: "VWAP", params: [], defaults: [], color: "#38d39f" },
+  rsi: { label: "RSI", params: ["Period"], defaults: [14], color: "#b57edc" },
   macd: { label: "MACD", params: ["Fast", "Slow", "Signal"], defaults: [12, 26, 9] },
   stoch: { label: "Stochastic", params: ["Period", "%K", "%D"], defaults: [14, 3, 3] },
   vol: { label: "Volume", params: [], defaults: [] },
 };
 const IND_ORDER = ["sma", "ema", "wma", "bb", "vwap", "rsi", "macd", "stoch", "vol"];
-let indicators = []; // [{ type, params:[…] }]
+let indicators = []; // [{ type, params:[…], color:"#rrggbb" }]  (color only for colorable types)
+
+// Normalize a stored/default color to "#rrggbb"; "" if the type isn't colorable.
+function indColor(type, c) {
+  const def = IND_TYPES[type] && IND_TYPES[type].color;
+  if (!def) return "";
+  return /^#[0-9a-fA-F]{6}$/.test(c || "") ? c : def;
+}
 
 function renderIndList() {
   const box = els.indList;
@@ -46,6 +55,7 @@ function renderIndList() {
     sel.addEventListener("change", () => {
       ind.type = sel.value;
       ind.params = IND_TYPES[sel.value].defaults.slice();
+      ind.color = indColor(sel.value, ""); // reset to the new type's default swatch
       renderIndList();
       update();
     });
@@ -65,6 +75,19 @@ function renderIndList() {
       });
       row.appendChild(inp);
     });
+
+    if (IND_TYPES[ind.type].color) {
+      const col = document.createElement("input");
+      col.type = "color";
+      col.className = "ind-color";
+      col.title = "Line color";
+      col.value = indColor(ind.type, ind.color);
+      col.addEventListener("input", () => {
+        ind.color = col.value;
+        update();
+      });
+      row.appendChild(col);
+    }
 
     const del = document.createElement("button");
     del.type = "button";
@@ -219,7 +242,11 @@ function load() {
   els.hr24.checked = !!saved.hr24;
   els.hl.checked = !!saved.hl;
   indicators = Array.isArray(saved.indicators)
-    ? saved.indicators.filter((i) => i && IND_TYPES[i.type]).map((i) => ({ type: i.type, params: Array.isArray(i.params) ? i.params.slice() : IND_TYPES[i.type].defaults.slice() }))
+    ? saved.indicators.filter((i) => i && IND_TYPES[i.type]).map((i) => ({
+        type: i.type,
+        params: Array.isArray(i.params) ? i.params.slice() : IND_TYPES[i.type].defaults.slice(),
+        color: indColor(i.type, i.color),
+      }))
     : [];
   // Auto-detect the device when none was saved (works when browsing on the phone).
   if (!saved.device) els.device.value = detectDeviceValue() || DEFAULT_DEVICE;
@@ -255,7 +282,12 @@ function buildUrl(cacheBust) {
   }
   const indStr = indicators
     .filter((i) => IND_TYPES[i.type])
-    .map((i) => [i.type, ...i.params].join(":"))
+    .map((i) => {
+      const parts = [i.type, ...i.params];
+      const c = indColor(i.type, i.color);
+      if (c) parts.push(c.replace("#", "")); // bare hex keeps the URL clean (no %23)
+      return parts.join(":");
+    })
     .join(",");
   if (indStr) p.set("ind", indStr);
   if (PUBKEY) {
@@ -330,7 +362,7 @@ els.toggleSecret.addEventListener("click", () => {
 els.refresh.addEventListener("click", () => refreshPreview(true));
 
 els.addInd.addEventListener("click", () => {
-  indicators.push({ type: "sma", params: IND_TYPES.sma.defaults.slice() });
+  indicators.push({ type: "sma", params: IND_TYPES.sma.defaults.slice(), color: IND_TYPES.sma.color });
   renderIndList();
   update();
 });

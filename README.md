@@ -76,12 +76,20 @@ widget shows the reason instead of a broken image. Add `&format=json` to see the
 
 ### Indicators (`ind`)
 
-Comma-separated list; each entry is `type[:p1[:p2…]]`. Add any number (capped at 8; at most 3
-oscillator panes render, extras ignored). **Overlays** draw on the price axis; **oscillators**
-get their own stacked pane below the candles.
+Comma-separated list; each entry is `type[:p1[:p2…]][:color]`. Add any number (capped at 8; at
+most 3 oscillator panes render, extras ignored). **Overlays** draw on the price axis;
+**oscillators** get their own stacked pane below the candles.
 
 ```
 ind=sma:20,ema:50,bb:20:2,vwap,rsi:14,macd:12:26:9,stoch:14:3:3,vol
+```
+
+**Custom color** — append a 6-digit hex (no `#`) to any single-line indicator
+(`sma`, `ema`, `wma`, `bb`, `vwap`, `rsi`); omit it to use the auto-assigned palette color.
+The multi-line / semantic panes (`macd`, `stoch`, `vol`) keep their conventional colors.
+
+```
+ind=sma:20:ff0000,ema:50:00e5ff,rsi:14:ffcc00
 ```
 
 | Type | Params (defaults) | Kind | What it is |

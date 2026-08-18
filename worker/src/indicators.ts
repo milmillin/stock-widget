@@ -19,6 +19,10 @@ const DEFAULTS: Record<string, number[]> = {
 // Distinct colors cycled across overlays (Bollinger/VWAP reuse their line color).
 const OVERLAY_COLORS = ["#f5a623", "#4aa3ff", "#c774f0", "#ff6ea9", "#38d39f", "#ffd24a"];
 
+// A spec token that is 6 hex digits (optional leading #) is a custom color, not a param.
+// Periods are capped at 400 (≤3 digits), so this never collides with a real parameter.
+const COLOR_RE = /^#?[0-9a-f]{6}$/;
+
 export function parseIndicators(param: string | undefined): IndicatorSpec[] {
   if (!param) return [];
   const specs: IndicatorSpec[] = [];
@@ -27,13 +31,22 @@ export function parseIndicators(param: string | undefined): IndicatorSpec[] {
     const parts = raw.trim().toLowerCase().split(":");
     const type = parts[0];
     if (!KNOWN.has(type)) continue;
-    const nums = parts
-      .slice(1)
-      .map((x) => parseFloat(x))
-      .filter((x) => Number.isFinite(x) && x > 0)
-      .map((x) => Math.min(x, 400));
+    let userColor = "";
+    const nums: number[] = [];
+    for (const tok of parts.slice(1)) {
+      if (!userColor && COLOR_RE.test(tok)) {
+        userColor = tok.startsWith("#") ? tok : "#" + tok;
+        continue;
+      }
+      const x = parseFloat(tok);
+      if (Number.isFinite(x) && x > 0) nums.push(Math.min(x, 400));
+    }
     const params = nums.length ? nums : DEFAULTS[type];
-    const color = OVERLAY_TYPES.has(type) ? OVERLAY_COLORS[overlayIdx++ % OVERLAY_COLORS.length] : "";
+    let color = userColor;
+    if (OVERLAY_TYPES.has(type)) {
+      const auto = OVERLAY_COLORS[overlayIdx++ % OVERLAY_COLORS.length];
+      if (!color) color = auto; // keep palette positions stable regardless of overrides
+    }
     specs.push({ type, params, color });
     if (specs.length >= 8) break;
   }
@@ -290,7 +303,7 @@ function renderOne(spec: IndicatorSpec, bars: Bar[], c: number[]): RenderIndicat
     case "rsi":
       return {
         pane: "own", kind: "rsi", label: `RSI ${a}`,
-        lines: [{ values: rsi(c, a), color: "#b57edc", width: 1.5 }],
+        lines: [{ values: rsi(c, a), color: spec.color || "#b57edc", width: 1.5 }],
         scale: { min: 0, max: 100, guides: [{ v: 30 }, { v: 70 }] },
       };
     case "macd": {
