@@ -63,6 +63,7 @@ GET {WORKER_URL}/chart.png
 | `tz` | | `UTC` | IANA timezone for the "last queried" time, e.g. `America/New_York` |
 | `hr24` | | `0` | `1` = 24-hour clock (also accepts `24hr`) |
 | `hl` | | `0` | `1` = newer-iOS specular rim highlight (bright top-left/bottom-right); `hlr` = corner radius in px |
+| `ind` | | (none) | indicators, comma-separated `type[:p1[:p2…]]` — see below |
 | `enc` | ✅* | — | RSA-OAEP-encrypted `{k,s}` credentials — what the preview site sends |
 | `key` | ✅* | — | Alpaca **API Key ID** (raw alternative to `enc`) |
 | `secret` | ✅* | — | Alpaca **API Secret** (raw alternative to `enc`) |
@@ -72,6 +73,36 @@ GET {WORKER_URL}/chart.png
 
 Errors (bad ticker, invalid key, no data) render as a small message **image** (HTTP 200) so a
 widget shows the reason instead of a broken image. Add `&format=json` to see the real error.
+
+### Indicators (`ind`)
+
+Comma-separated list; each entry is `type[:p1[:p2…]]`. Add any number (capped at 8; at most 3
+oscillator panes render, extras ignored). **Overlays** draw on the price axis; **oscillators**
+get their own stacked pane below the candles.
+
+```
+ind=sma:20,ema:50,bb:20:2,vwap,rsi:14,macd:12:26:9,stoch:14:3:3,vol
+```
+
+| Type | Params (defaults) | Kind | What it is |
+|------|-------------------|------|------------|
+| `sma` | `n` (20) | overlay | Simple moving average |
+| `ema` | `n` (20) | overlay | Exponential moving average |
+| `wma` | `n` (20) | overlay | Weighted moving average |
+| `bb` | `n` (20), `k` (2) | overlay | Bollinger Bands (SMA ± *k*·σ), shaded band |
+| `vwap` | — | overlay | Volume-weighted average price (intraday; resets each session) |
+| `rsi` | `n` (14) | pane | Relative Strength Index (Wilder), 30/70 guides |
+| `macd` | `fast` (12), `slow` (26), `signal` (9) | pane | MACD line + signal + histogram |
+| `stoch` | `n` (14), `k` (3), `d` (3) | pane | Stochastic %K / %D, 20/80 guides |
+| `vol` | — | pane | Volume bars (green/red by candle) |
+
+**Warmup is automatic.** Most indicators need bars *before* the first displayed candle to be
+correct (a 50-bar SMA needs 49 prior closes; Wilder RSI needs many more). The Worker fetches
+`bars + warmup` from Alpaca, computes each series over the full set, then renders only the last
+`bars` — so an indicator is drawn (and correct) from the very first visible candle.
+
+> `vwap` is meaningful only on **intraday** intervals — on daily-and-longer bars each candle is
+> its own session, so it collapses onto the price. Panes are cramped on the small square widget.
 
 ---
 

@@ -1,5 +1,6 @@
 import type { Bar } from "./alpaca";
 import type { WidgetSize } from "./sizes";
+import type { RenderIndicator } from "./indicators";
 
 export interface ChartOptions {
   width: number;
@@ -13,6 +14,7 @@ export interface ChartOptions {
   now?: Date; // when the data was queried (defaults to render time)
   highlight?: boolean; // draw a newer-iOS specular rim highlight (bright TL + BR corners)
   highlightRadius?: number; // corner radius (px) for the rim; matches the widget corner
+  indicators?: RenderIndicator[]; // overlays (price pane) + oscillators (own panes)
 }
 
 interface Palette {
@@ -22,6 +24,7 @@ interface Palette {
   subtext: string;
   up: string;
   down: string;
+  grid: string; // subtle separator / guide lines
   hlBright: string; // specular rim: bright at top-left & bottom-right corners
   hlDim: string;
 }
@@ -30,11 +33,13 @@ function palette(theme: "dark" | "light"): Palette {
   if (theme === "light") {
     return {
       bgFrom: "#ffffff", bgTo: "#eef1f5", text: "#0d1117", subtext: "#6b7280", up: "#12a969", down: "#e5484d",
+      grid: "rgba(0,0,0,0.09)",
       hlBright: "rgba(120,120,128,0.3)", hlDim: "rgba(120,120,128,0.035)",
     };
   }
   return {
     bgFrom: "#141b27", bgTo: "#0a0e14", text: "#e6edf3", subtext: "#8b949e", up: "#26a69a", down: "#ef5350",
+    grid: "rgba(255,255,255,0.1)",
     hlBright: "rgba(255,255,255,0.3)", hlDim: "rgba(255,255,255,0.035)",
   };
 }
@@ -151,12 +156,35 @@ export function buildChartSvg(bars: Bar[], o: ChartOptions): string {
   const plotW = plotRight - plotLeft;
   const plotH = plotBottom - plotTop;
 
-  // ---- price domain (with headroom so wicks don't touch the edges) ----
+  // ---- reserve stacked oscillator sub-panes below the candles ----
+  const panes = (o.indicators ?? []).filter((ind) => ind.pane === "own").slice(0, 3);
+  const P = panes.length;
+  const paneGap = 8 * k;
+  const oscAreaH = P > 0 ? plotH * Math.min(0.5, 0.2 * P) : 0;
+  const oscPaneH = P > 0 ? (oscAreaH - paneGap * P) / P : 0;
+  const priceBottom = plotBottom - oscAreaH; // candles/overlays live above this
+  const priceH = priceBottom - plotTop;
+
+  // ---- price domain: candles + price-pane overlays, with headroom ----
   let lo = Infinity;
   let hi = -Infinity;
   for (const b of bars) {
     if (b.l < lo) lo = b.l;
     if (b.h > hi) hi = b.h;
+  }
+  for (const ind of o.indicators ?? []) {
+    if (ind.pane !== "price") continue;
+    const consider = (v: number | null) => {
+      if (v != null && isFinite(v)) {
+        if (v < lo) lo = v;
+        if (v > hi) hi = v;
+      }
+    };
+    for (const ln of ind.lines ?? []) for (const v of ln.values) consider(v);
+    if (ind.band) {
+      for (const v of ind.band.upper) consider(v);
+      for (const v of ind.band.lower) consider(v);
+    }
   }
   if (!isFinite(lo) || !isFinite(hi)) {
     lo = 0;
@@ -171,7 +199,7 @@ export function buildChartSvg(bars: Bar[], o: ChartOptions): string {
   lo -= range * 0.06;
   hi += range * 0.06;
   const span = hi - lo;
-  const yOf = (price: number) => plotTop + ((hi - price) / span) * plotH;
+  const yOf = (price: number) => plotTop + ((hi - price) / span) * priceH;
 
   const parts: string[] = [];
   parts.push(
@@ -203,6 +231,118 @@ export function buildChartSvg(bars: Bar[], o: ChartOptions): string {
     parts.push(
       `<rect x="${r(cx - bodyW / 2)}" y="${r(top)}" width="${r(bodyW)}" height="${r(bh)}" fill="${color}"/>`,
     );
+  }
+
+  // ---- indicators ----
+  const xAt = (i: number) => plotLeft + slot * (i + 0.5);
+  const linePolys = (values: (number | null)[], mapY: (v: number) => number, color: string, width: number, dash?: boolean): string[] => {
+    const out: string[] = [];
+    let seg: string[] = [];
+    const flush = () => {
+      if (seg.length >= 2) {
+        out.push(
+          `<polyline points="${seg.join(" ")}" fill="none" stroke="${color}" stroke-width="${r(width)}" ` +
+            `stroke-linejoin="round" stroke-linecap="round"${dash ? ` stroke-dasharray="${r(width * 3)},${r(width * 2)}"` : ""}/>`,
+        );
+      }
+      seg = [];
+    };
+    for (let i = 0; i < values.length; i++) {
+      const v = values[i];
+      if (v == null || !isFinite(v)) {
+        flush();
+        continue;
+      }
+      seg.push(`${r(xAt(i))},${r(mapY(v))}`);
+    }
+    flush();
+    return out;
+  };
+
+  // price-pane overlays (bands first, then lines)
+  for (const ind of o.indicators ?? []) {
+    if (ind.pane !== "price") continue;
+    if (ind.band) {
+      const top: string[] = [];
+      const bot: string[] = [];
+      for (let i = 0; i < ind.band.upper.length; i++) {
+        const u = ind.band.upper[i];
+        const l = ind.band.lower[i];
+        if (u == null || l == null) continue;
+        top.push(`${r(xAt(i))},${r(yOf(u))}`);
+        bot.push(`${r(xAt(i))},${r(yOf(l))}`);
+      }
+      if (top.length >= 2) parts.push(`<path d="M ${top.join(" L ")} L ${bot.reverse().join(" L ")} Z" fill="${ind.band.fill}"/>`);
+    }
+    for (const ln of ind.lines ?? []) for (const pl of linePolys(ln.values, yOf, ln.color, (ln.width ?? 1.3) * k, ln.dash)) parts.push(pl);
+  }
+
+  // overlay legend (top-left of the price pane, colored per indicator)
+  {
+    let lx = plotLeft;
+    const ly = plotTop + s.fFoot * 1.1;
+    for (const ind of o.indicators ?? []) {
+      if (ind.pane !== "price") continue;
+      const col = ind.lines?.[0]?.color ?? p.subtext;
+      parts.push(text(ind.label, { x: lx, y: ly, size: s.fFoot * 0.9, fill: col, weight: 700 }));
+      lx += ind.label.length * s.fFoot * 0.55 + s.fFoot;
+    }
+  }
+
+  // oscillator sub-panes
+  {
+    let paneTop = priceBottom + paneGap;
+    for (const ind of panes) {
+      const pTop = paneTop;
+      const pBot = pTop + oscPaneH;
+      let amn = Infinity;
+      let amx = -Infinity;
+      const consider = (v: number | null) => {
+        if (v != null && isFinite(v)) {
+          if (v < amn) amn = v;
+          if (v > amx) amx = v;
+        }
+      };
+      for (const ln of ind.lines ?? []) for (const v of ln.values) consider(v);
+      if (ind.bars) for (const v of ind.bars.values) consider(v);
+      for (const g of ind.scale?.guides ?? []) consider(g.v);
+      if (!isFinite(amn) || !isFinite(amx)) {
+        amn = 0;
+        amx = 1;
+      }
+      if (amn === amx) {
+        amn -= 1;
+        amx += 1;
+      }
+      const pd = (amx - amn) * 0.1;
+      const MN = ind.scale?.min ?? amn - pd;
+      const MX = ind.scale?.max ?? amx + pd;
+      const drange = MX - MN || 1;
+      const oscY = (v: number) => pBot - ((v - MN) / drange) * (pBot - pTop);
+
+      parts.push(`<line x1="${r(plotLeft)}" y1="${r(pTop)}" x2="${r(plotRight)}" y2="${r(pTop)}" stroke="${p.grid}" stroke-width="1"/>`);
+      for (const g of ind.scale?.guides ?? []) {
+        parts.push(
+          `<line x1="${r(plotLeft)}" y1="${r(oscY(g.v))}" x2="${r(plotRight)}" y2="${r(oscY(g.v))}" stroke="${p.grid}" stroke-width="1" stroke-dasharray="${r(2 * k)},${r(2 * k)}"/>`,
+        );
+      }
+      if (ind.bars) {
+        const baseY = MN <= 0 && MX >= 0 ? oscY(0) : pBot;
+        const bw = Math.max(1, slot * 0.7);
+        for (let i = 0; i < ind.bars.values.length; i++) {
+          const v = ind.bars.values[i];
+          if (v == null) continue;
+          const col = ind.bars.signs ? (ind.bars.signs[i] ? ind.bars.posColor : ind.bars.negColor) : v >= 0 ? ind.bars.posColor : ind.bars.negColor;
+          const yv = oscY(v);
+          const yTop = Math.min(yv, baseY);
+          const hgt = Math.max(1, Math.abs(yv - baseY));
+          parts.push(`<rect x="${r(xAt(i) - bw / 2)}" y="${r(yTop)}" width="${r(bw)}" height="${r(hgt)}" fill="${col}" opacity="0.85"/>`);
+        }
+      }
+      for (const ln of ind.lines ?? []) for (const pl of linePolys(ln.values, oscY, ln.color, (ln.width ?? 1.3) * k, ln.dash)) parts.push(pl);
+      parts.push(text(ind.label, { x: plotLeft, y: pTop + s.fFoot, size: s.fFoot * 0.9, fill: p.subtext }));
+      paneTop = pBot + paneGap;
+    }
   }
 
   // ---- header: ticker + interval (left), price + daily change (right) ----

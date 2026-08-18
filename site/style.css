@@ -101,6 +101,19 @@ input[type="range"] { width: 100%; accent-color: var(--accent); margin-top: 8px;
 }
 .check input { width: auto; accent-color: var(--accent); margin: 0; }
 
+/* indicators add-list */
+.ind-block { margin-top: 4px; }
+.ind-head {
+  display: flex; justify-content: space-between; align-items: center;
+  margin-bottom: 10px; font-size: 13px; color: var(--subtext); font-weight: 600;
+}
+.ind-head .sub { font-weight: 400; }
+.ind-row { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; }
+.ind-row:last-child { margin-bottom: 0; }
+.ind-type { flex: 1 1 auto; min-width: 0; }
+.ind-param { width: 76px; flex: 0 0 auto; }
+.ind-del { flex: 0 0 auto; padding: 6px 11px; font-size: 16px; line-height: 1; }
+
 .warn {
   margin: 10px 0 0;
   font-size: 12.5px;

@@ -7,8 +7,79 @@ const els = {
   tz: $("tz"), hr24: $("hr24"), hl: $("hl"),
   key: $("key"), secret: $("secret"), toggleSecret: $("toggleSecret"),
   img: $("previewImg"), placeholder: $("placeholder"), dims: $("dims"),
+  indList: $("indList"), addInd: $("addInd"),
   url: $("url"), copy: $("copy"), copied: $("copied"), refresh: $("refresh"),
 };
+
+// ---- indicators ----
+const IND_TYPES = {
+  sma: { label: "SMA", params: ["Period"], defaults: [20] },
+  ema: { label: "EMA", params: ["Period"], defaults: [20] },
+  wma: { label: "WMA", params: ["Period"], defaults: [20] },
+  bb: { label: "Bollinger", params: ["Period", "Mult"], defaults: [20, 2] },
+  vwap: { label: "VWAP", params: [], defaults: [] },
+  rsi: { label: "RSI", params: ["Period"], defaults: [14] },
+  macd: { label: "MACD", params: ["Fast", "Slow", "Signal"], defaults: [12, 26, 9] },
+  stoch: { label: "Stochastic", params: ["Period", "%K", "%D"], defaults: [14, 3, 3] },
+  vol: { label: "Volume", params: [], defaults: [] },
+};
+const IND_ORDER = ["sma", "ema", "wma", "bb", "vwap", "rsi", "macd", "stoch", "vol"];
+let indicators = []; // [{ type, params:[…] }]
+
+function renderIndList() {
+  const box = els.indList;
+  if (!box) return;
+  box.textContent = "";
+  indicators.forEach((ind, idx) => {
+    const row = document.createElement("div");
+    row.className = "ind-row";
+
+    const sel = document.createElement("select");
+    sel.className = "ind-type";
+    for (const t of IND_ORDER) {
+      const opt = document.createElement("option");
+      opt.value = t;
+      opt.textContent = IND_TYPES[t].label;
+      if (t === ind.type) opt.selected = true;
+      sel.appendChild(opt);
+    }
+    sel.addEventListener("change", () => {
+      ind.type = sel.value;
+      ind.params = IND_TYPES[sel.value].defaults.slice();
+      renderIndList();
+      update();
+    });
+    row.appendChild(sel);
+
+    IND_TYPES[ind.type].params.forEach((plabel, pi) => {
+      const inp = document.createElement("input");
+      inp.type = "number";
+      inp.className = "ind-param";
+      inp.min = "1";
+      inp.title = plabel;
+      inp.placeholder = plabel;
+      inp.value = ind.params[pi] != null ? String(ind.params[pi]) : "";
+      inp.addEventListener("input", () => {
+        ind.params[pi] = parseFloat(inp.value) || IND_TYPES[ind.type].defaults[pi];
+        update();
+      });
+      row.appendChild(inp);
+    });
+
+    const del = document.createElement("button");
+    del.type = "button";
+    del.className = "ghost ind-del";
+    del.textContent = "×";
+    del.title = "Remove";
+    del.addEventListener("click", () => {
+      indicators.splice(idx, 1);
+      renderIndList();
+      update();
+    });
+    row.appendChild(del);
+    box.appendChild(row);
+  });
+}
 
 const STORE_KEY = "stock-widget-settings";
 
@@ -134,6 +205,7 @@ function save() {
   }
   data.hr24 = els.hr24.checked;
   data.hl = els.hl.checked;
+  data.indicators = indicators;
   try { localStorage.setItem(STORE_KEY, JSON.stringify(data)); } catch (_) {}
 }
 
@@ -146,6 +218,9 @@ function load() {
   }
   els.hr24.checked = !!saved.hr24;
   els.hl.checked = !!saved.hl;
+  indicators = Array.isArray(saved.indicators)
+    ? saved.indicators.filter((i) => i && IND_TYPES[i.type]).map((i) => ({ type: i.type, params: Array.isArray(i.params) ? i.params.slice() : IND_TYPES[i.type].defaults.slice() }))
+    : [];
   // Auto-detect the device when none was saved (works when browsing on the phone).
   if (!saved.device) els.device.value = detectDeviceValue() || DEFAULT_DEVICE;
 }
@@ -178,6 +253,11 @@ function buildUrl(cacheBust) {
     p.set("hl", "1");
     p.set("hlr", String(Math.round(CORNER_PT * currentDevice().scale))); // rim radius in px
   }
+  const indStr = indicators
+    .filter((i) => IND_TYPES[i.type])
+    .map((i) => [i.type, ...i.params].join(":"))
+    .join(",");
+  if (indStr) p.set("ind", indStr);
   if (PUBKEY) {
     // Encrypted creds — the raw secret never enters the URL.
     if (encBlob) p.set("enc", encBlob);
@@ -249,6 +329,12 @@ els.toggleSecret.addEventListener("click", () => {
 
 els.refresh.addEventListener("click", () => refreshPreview(true));
 
+els.addInd.addEventListener("click", () => {
+  indicators.push({ type: "sma", params: IND_TYPES.sma.defaults.slice() });
+  renderIndList();
+  update();
+});
+
 els.copy.addEventListener("click", async () => {
   if (!ready()) return;
   const text = buildUrl(false);
@@ -272,6 +358,7 @@ els.img.addEventListener("load", () => els.placeholder.classList.add("hide"));
 
 populateDevices();
 load();
+renderIndList();
 update();
 (async () => {
   try {

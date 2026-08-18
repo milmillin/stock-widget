@@ -4,6 +4,7 @@ import { fetchBars, normalizeTimeframe, AlpacaError, VALID_FEEDS } from "./alpac
 import { buildChartSvg, buildMessageSvg } from "./chart";
 import { svgToPng } from "./render";
 import { decryptCreds } from "./crypto";
+import { parseIndicators, warmupFor, computeIndicators } from "./indicators";
 
 interface Env {
   // RSA-OAEP private key (PKCS8 base64) that decrypts the `enc` credential blob.
@@ -33,6 +34,7 @@ app.get("/", (c) =>
       "  tz       UTC         IANA timezone for the 'last queried' time, e.g. America/New_York\n" +
       "  hr24     0           1 = 24-hour clock (also accepts 24hr param)\n" +
       "  hl       0           1 = newer-iOS rim highlight; hlr = corner radius in px\n" +
+      "  ind      (none)      indicators, comma-sep: sma:20,ema:50,bb:20:2,vwap,rsi:14,macd:12:26:9,stoch:14:3:3,vol\n" +
       "  enc      required*   RSA-OAEP encrypted {k,s} creds (preferred; from the site)\n" +
       "  key      required*   Alpaca API Key ID    (raw alternative to enc)\n" +
       "  secret   required*   Alpaca API Secret    (raw alternative to enc)\n" +
@@ -82,6 +84,8 @@ app.get("/chart.png", async (c) => {
   const hr24 = ["1", "true", "yes", "24"].includes((q.hr24 ?? q["24hr"] ?? "").toLowerCase());
   const highlight = ["1", "true", "yes"].includes((q.hl ?? "").toLowerCase());
   const highlightRadius = clamp(parseInt(q.hlr ?? "", 10) || 0, 0, 400);
+  const indicatorSpecs = parseIndicators(q.ind);
+  const warmup = warmupFor(indicatorSpecs); // extra bars fetched before the display window
 
   let keyId = q.key ?? c.env.ALPACA_KEY_ID ?? "";
   let secretKey = q.secret ?? c.env.ALPACA_SECRET ?? "";
@@ -104,16 +108,19 @@ app.get("/chart.png", async (c) => {
 
   // ---- fetch + render ----
   try {
-    const data = await fetchBars({ ticker, timeframe, limit: bars, feed, keyId, secretKey });
+    // Fetch display bars + warmup bars; compute indicators over the full set, render the tail.
+    const data = await fetchBars({ ticker, timeframe, limit: clamp(bars + warmup, 5, 1000), feed, keyId, secretKey });
+    const displayBars = data.slice(-bars);
     if (wantJson) {
       return c.json(
-        { ticker, timeframe, feed, size, count: data.length, bars: data },
+        { ticker, timeframe, feed, size, warmup, count: displayBars.length, bars: displayBars },
         200,
         { "Access-Control-Allow-Origin": "*" },
       );
     }
-    if (data.length === 0) return errorImage("No data");
-    const svg = buildChartSvg(data, {
+    if (displayBars.length === 0) return errorImage("No data");
+    const indicators = computeIndicators(indicatorSpecs, data, displayBars.length);
+    const svg = buildChartSvg(displayBars, {
       width: dims.width,
       height: dims.height,
       theme,
@@ -125,6 +132,7 @@ app.get("/chart.png", async (c) => {
       now: new Date(),
       highlight,
       highlightRadius: highlightRadius || undefined,
+      indicators,
     });
     return sendPng(svg);
   } catch (err) {
